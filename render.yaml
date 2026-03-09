@@ -1,0 +1,32 @@
+# Render Blueprint - Deploy del backend Rover
+# https://render.com/docs/blueprint-spec
+#
+# Cómo usar:
+# 1. Sube el repo a GitHub/GitLab.
+# 2. En Render: New > Blueprint > Conecta el repo.
+# 3. En el servicio, añade la variable DATABASE_URL (tu connection string de Neon).
+# 4. Deploy.
+
+services:
+  - type: web
+    name: rover-api
+    runtime: node
+    region: oregon
+
+    # Repo (ajusta si tu repo tiene otra estructura)
+    rootDir: backend
+
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      # Añade DATABASE_URL en el Dashboard de Render (Environment) con tu connection string de Neon
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+        # Cuando tengas la URL del frontend en Render, pónla aquí (ej. https://rover-app.onrender.com)

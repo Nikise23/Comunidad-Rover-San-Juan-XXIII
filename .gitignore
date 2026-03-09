@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Build
+dist/
+backend/dist/
+frontend/dist/
+*.tsbuildinfo
+
+# Environment (nunca subas la connection string con contraseña)
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+
+# IDE / OS
+.idea/
+.vscode/
+*.log
+.DS_Store
+Thumbs.db
+
+# Vite
+frontend/.vite/
