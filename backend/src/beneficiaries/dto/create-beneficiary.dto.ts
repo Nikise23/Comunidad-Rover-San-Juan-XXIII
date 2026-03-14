@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsArray, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsUUID, IsBoolean } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class CreateBeneficiaryDto {
   @IsString()
@@ -17,6 +18,11 @@ export class CreateBeneficiaryDto {
   @IsOptional()
   @IsString()
   role?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === undefined ? undefined : value === true || value === 'true'))
+  @IsBoolean()
+  documentationSubmitted?: boolean;
 
   @IsOptional()
   @IsArray()

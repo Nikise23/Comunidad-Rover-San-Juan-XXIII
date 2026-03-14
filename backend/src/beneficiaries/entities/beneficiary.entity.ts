@@ -30,6 +30,10 @@ export class Beneficiary {
   @Column({ nullable: true })
   role: string;
 
+  /** Si entregó documentación */
+  @Column({ type: 'boolean', default: false })
+  documentationSubmitted: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 

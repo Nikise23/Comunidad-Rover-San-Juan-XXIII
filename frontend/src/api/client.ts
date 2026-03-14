@@ -26,6 +26,8 @@ export type Beneficiary = {
   dni: string;
   contact?: string;
   role?: string;
+  /** Si entregó documentación */
+  documentationSubmitted?: boolean;
   projects?: Project[];
 };
 

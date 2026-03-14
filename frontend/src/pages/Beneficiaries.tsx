@@ -1,55 +1,80 @@
 import { useEffect, useState } from 'react';
-import { beneficiariesApi, type Beneficiary } from '../api/client';
+import { beneficiariesApi, projectsApi, type Beneficiary, type Project } from '../api/client';
 
 const btn = { padding: '0.35rem 0.65rem', border: 'none', borderRadius: 8, fontSize: '0.85rem', cursor: 'pointer' as const };
 const btnEdit = { ...btn, background: 'var(--surface-hover)', color: 'var(--text)' };
 const btnDanger = { ...btn, background: 'var(--danger)', color: '#fff' };
 
+/** Carpeta de Google Drive para subir documentación de beneficiarios */
+const DOCS_DRIVE_FOLDER_URL = import.meta.env.VITE_DRIVE_DOCS_FOLDER || 'https://drive.google.com/drive/folders/1ZudLvqLE5H5XNwmRkXj9hggw_hT6o5RH?usp=sharing';
+
 export default function Beneficiaries() {
   const [list, setList] = useState<Beneficiary[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', contact: '', role: '' });
+  const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', contact: '', role: '', documentationSubmitted: false, projectIds: [] as string[] });
 
   const load = () => {
     beneficiariesApi.list().then((res) => setList(res.data)).catch(() => setList([])).finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    projectsApi.list().then((res) => setProjects(res.data)).catch(() => setProjects([]));
+  }, []);
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ firstName: '', lastName: '', dni: '', contact: '', role: '' });
+    setForm({ firstName: '', lastName: '', dni: '', contact: '', role: '', documentationSubmitted: false, projectIds: [] });
     setModal(true);
   };
 
   const openEdit = (b: Beneficiary) => {
     setEditingId(b.id);
+    const projectIds = (b.projects || []).map((p) => (typeof p === 'object' && p !== null && 'id' in p ? (p as Project).id : p as string));
     setForm({
       firstName: b.firstName,
       lastName: b.lastName,
       dni: b.dni,
       contact: b.contact || '',
       role: b.role || '',
+      documentationSubmitted: Boolean(b.documentationSubmitted),
+      projectIds,
     });
     setModal(true);
   };
 
+  const toggleDocumentation = (b: Beneficiary) => {
+    beneficiariesApi.update(b.id, { documentationSubmitted: !b.documentationSubmitted }).then(() => load());
+  };
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    const { projectIds, ...rest } = form;
+    const payload = { ...rest, ...(editingId ? { projectIds } : (projectIds.length ? { projectIds } : {})) };
     if (editingId) {
-      beneficiariesApi.update(editingId, form).then(() => {
+      beneficiariesApi.update(editingId, payload).then(() => {
         setModal(false);
         setEditingId(null);
         load();
       });
     } else {
-      beneficiariesApi.create(form).then(() => {
+      beneficiariesApi.create(payload).then(() => {
         setModal(false);
-        setForm({ firstName: '', lastName: '', dni: '', contact: '', role: '' });
+        setForm({ firstName: '', lastName: '', dni: '', contact: '', role: '', documentationSubmitted: false, projectIds: [] });
         load();
       });
     }
+  };
+
+  const toggleProject = (projectId: string) => {
+    setForm((f) => ({
+      ...f,
+      projectIds: f.projectIds.includes(projectId)
+        ? f.projectIds.filter((id) => id !== projectId)
+        : [...f.projectIds, projectId],
+    }));
   };
 
   const remove = (id: string, name: string) => {
@@ -73,6 +98,7 @@ export default function Beneficiaries() {
                 <th style={{ padding: '0.75rem 1rem' }}>DNI</th>
                 <th style={{ padding: '0.75rem 1rem' }}>Contacto</th>
                 <th style={{ padding: '0.75rem 1rem' }}>Rol</th>
+                <th style={{ padding: '0.75rem 1rem' }}>Documentación</th>
                 <th style={{ padding: '0.75rem 1rem' }}>Proyectos</th>
                 <th style={{ padding: '0.75rem 1rem', width: 140 }}>Acciones</th>
               </tr>
@@ -84,6 +110,27 @@ export default function Beneficiaries() {
                   <td style={{ padding: '0.75rem 1rem' }}>{b.dni}</td>
                   <td style={{ padding: '0.75rem 1rem' }}>{b.contact || '-'}</td>
                   <td style={{ padding: '0.75rem 1rem' }}>{b.role || '-'}</td>
+                  <td style={{ padding: '0.75rem 1rem' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(b.documentationSubmitted)}
+                          onChange={() => toggleDocumentation(b)}
+                          style={{ width: 18, height: 18, accentColor: 'var(--accent)' }}
+                        />
+                        <span style={{ fontSize: '0.85rem' }}>{b.documentationSubmitted ? 'Entregada' : 'Pendiente'}</span>
+                      </label>
+                      <a
+                        href={DOCS_DRIVE_FOLDER_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: '0.85rem', color: 'var(--accent)' }}
+                      >
+                        Abrir carpeta Drive
+                      </a>
+                    </div>
+                  </td>
                   <td style={{ padding: '0.75rem 1rem' }}>{(b.projects || []).length}</td>
                   <td style={{ padding: '0.75rem 1rem' }}>
                     <button type="button" style={btnEdit} onClick={() => openEdit(b)}>Editar</button>
@@ -112,6 +159,42 @@ export default function Beneficiaries() {
               <input value={form.contact} onChange={(e) => setForm((f) => ({ ...f, contact: e.target.value }))} style={{ width: '100%', padding: '0.5rem', marginBottom: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }} />
               <label style={{ display: 'block', marginBottom: 8 }}>Rol</label>
               <input value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} style={{ width: '100%', padding: '0.5rem', marginBottom: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }} />
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={form.documentationSubmitted}
+                    onChange={(e) => setForm((f) => ({ ...f, documentationSubmitted: e.target.checked }))}
+                    style={{ width: 18, height: 18, accentColor: 'var(--accent)' }}
+                  />
+                  <span>Documentación entregada</span>
+                </label>
+                <p style={{ marginTop: 6, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  <a href={DOCS_DRIVE_FOLDER_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>
+                    Abrir carpeta en Drive para crear subcarpetas y subir archivos
+                  </a>
+                </p>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', marginBottom: 8 }}>Proyectos</label>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+                  {editingId ? 'Marcá los proyectos a los que pertenece.' : 'Opcional. Si no elegís ninguno, se asigna al proyecto por defecto.'}
+                </p>
+                <div style={{ maxHeight: 160, overflow: 'auto', border: '1px solid var(--border)', borderRadius: 8, padding: 8, background: 'var(--bg)' }}>
+                  {projects.length === 0 && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No hay proyectos cargados.</p>}
+                  {projects.map((p) => (
+                    <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={form.projectIds.includes(p.id)}
+                        onChange={() => toggleProject(p.id)}
+                        style={{ width: 18, height: 18, accentColor: 'var(--accent)' }}
+                      />
+                      <span>{p.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
               <div style={{ display: 'flex', gap: 8, marginTop: '1rem' }}>
                 <button type="submit" style={{ padding: '0.5rem 1rem', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600 }}>{editingId ? 'Guardar' : 'Crear'}</button>
                 <button type="button" onClick={() => setModal(false)} style={{ padding: '0.5rem 1rem', background: 'var(--surface-hover)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>Cancelar</button>

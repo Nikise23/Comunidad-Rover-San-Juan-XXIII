@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Beneficiary } from './entities/beneficiary.entity';
+import { Project } from '../projects/entities/project.entity';
 import { CreateBeneficiaryDto } from './dto/create-beneficiary.dto';
 import { UpdateBeneficiaryDto } from './dto/update-beneficiary.dto';
 
@@ -10,6 +11,8 @@ export class BeneficiariesService {
   constructor(
     @InjectRepository(Beneficiary)
     private readonly beneficiaryRepo: Repository<Beneficiary>,
+    @InjectRepository(Project)
+    private readonly projectRepo: Repository<Project>,
   ) {}
 
   async create(dto: CreateBeneficiaryDto): Promise<Beneficiary> {
@@ -21,10 +24,19 @@ export class BeneficiariesService {
       dni: dto.dni,
       contact: dto.contact,
       role: dto.role,
+      documentationSubmitted: dto.documentationSubmitted ?? false,
     });
     const saved = await this.beneficiaryRepo.save(beneficiary);
     if (dto.projectIds?.length) {
       await this.assignProjects(saved.id, dto.projectIds);
+    } else {
+      const defaultProject = await this.projectRepo.findOne({
+        order: { createdAt: 'ASC' },
+        select: ['id'],
+      });
+      if (defaultProject) {
+        await this.assignProjects(saved.id, [defaultProject.id]);
+      }
     }
     return this.findOne(saved.id);
   }
