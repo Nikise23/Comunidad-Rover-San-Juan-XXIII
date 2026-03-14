@@ -102,7 +102,7 @@ export class SalesService {
       });
       beneficiaries.forEach((b: Beneficiary) => names.set(b.id, `${b.firstName} ${b.lastName}`));
     }
-    // Ganancia personal por beneficiario: suma de cantidad * (scoutEarningsPerUnit ?? pricePerUnit) por venta
+    // Ganancia personal por protagonista: suma de cantidad * (scoutEarningsPerUnit ?? pricePerUnit) por venta
     const salesWithProduct = await this.saleRepo.find({
       where: { eventId },
       relations: ['product'],

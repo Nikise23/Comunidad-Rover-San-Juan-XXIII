@@ -6,6 +6,18 @@ import { Project } from '../projects/entities/project.entity';
 import { CreateBeneficiaryDto } from './dto/create-beneficiary.dto';
 import { UpdateBeneficiaryDto } from './dto/update-beneficiary.dto';
 
+const ROLE_SCOUT = 'scout';
+const ROLE_PROTAGONISTA = 'protagonista';
+
+function normalizeRole(role: string | null | undefined): string | null {
+  if (role == null || role === '') return role ?? null;
+  return role.trim().toLowerCase() === ROLE_SCOUT ? ROLE_PROTAGONISTA : role.trim();
+}
+
+function mapRoleForResponse(b: Beneficiary): void {
+  if (b.role != null && b.role.trim().toLowerCase() === ROLE_SCOUT) (b as any).role = ROLE_PROTAGONISTA;
+}
+
 @Injectable()
 export class BeneficiariesService {
   constructor(
@@ -17,13 +29,13 @@ export class BeneficiariesService {
 
   async create(dto: CreateBeneficiaryDto): Promise<Beneficiary> {
     const existing = await this.beneficiaryRepo.findOne({ where: { dni: dto.dni } });
-    if (existing) throw new ConflictException('Ya existe un beneficiario con ese DNI');
+    if (existing) throw new ConflictException('Ya existe un protagonista con ese DNI');
     const beneficiary = this.beneficiaryRepo.create({
       firstName: dto.firstName,
       lastName: dto.lastName,
       dni: dto.dni,
       contact: dto.contact,
-      role: dto.role,
+      role: normalizeRole(dto.role) ?? dto.role,
       documentationSubmitted: dto.documentationSubmitted ?? false,
     });
     const saved = await this.beneficiaryRepo.save(beneficiary);
@@ -42,10 +54,12 @@ export class BeneficiariesService {
   }
 
   async findAll(): Promise<Beneficiary[]> {
-    return this.beneficiaryRepo.find({
+    const list = await this.beneficiaryRepo.find({
       relations: ['projects'],
       order: { lastName: 'ASC', firstName: 'ASC' },
     });
+    list.forEach(mapRoleForResponse);
+    return list;
   }
 
   async findOne(id: string): Promise<Beneficiary> {
@@ -53,7 +67,8 @@ export class BeneficiariesService {
       where: { id },
       relations: ['projects'],
     });
-    if (!b) throw new NotFoundException('Beneficiario no encontrado');
+    if (!b) throw new NotFoundException('Protagonista no encontrado');
+    mapRoleForResponse(b);
     return b;
   }
 
@@ -61,10 +76,13 @@ export class BeneficiariesService {
     const beneficiary = await this.findOne(id);
     if (dto.dni && dto.dni !== beneficiary.dni) {
       const existing = await this.beneficiaryRepo.findOne({ where: { dni: dto.dni } });
-      if (existing) throw new ConflictException('Ya existe un beneficiario con ese DNI');
+      if (existing) throw new ConflictException('Ya existe un protagonista con ese DNI');
     }
     Object.assign(beneficiary, dto);
     delete (beneficiary as any).projectIds;
+    if (dto.role !== undefined) {
+      beneficiary.role = normalizeRole(dto.role) ?? dto.role;
+    }
     await this.beneficiaryRepo.save(beneficiary);
     if (dto.projectIds !== undefined) {
       await this.assignProjects(id, dto.projectIds);
@@ -82,7 +100,7 @@ export class BeneficiariesService {
       where: { id: beneficiaryId },
       relations: ['projects'],
     });
-    if (!b) throw new NotFoundException('Beneficiario no encontrado');
+    if (!b) throw new NotFoundException('Protagonista no encontrado');
     b.projects = projectIds.map((id) => ({ id } as any));
     await this.beneficiaryRepo.save(b);
   }

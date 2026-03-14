@@ -8,6 +8,7 @@ import { Product } from '../events/entities/product.entity';
 import { Beneficiary } from '../beneficiaries/entities/beneficiary.entity';
 import { Raffle } from '../raffles/entities/raffle.entity';
 import { RaffleNumber, RaffleNumberStatus } from '../raffles/entities/raffle-number.entity';
+import { Contribution } from '../contributions/entities/contribution.entity';
 
 @Injectable()
 export class ReportsService {
@@ -24,13 +25,15 @@ export class ReportsService {
     private readonly raffleRepo: Repository<Raffle>,
     @InjectRepository(RaffleNumber)
     private readonly raffleNumberRepo: Repository<RaffleNumber>,
+    @InjectRepository(Contribution)
+    private readonly contributionRepo: Repository<Contribution>,
   ) {}
 
   async getDashboard(projectId?: string): Promise<{
     projects: { id: string; name: string; budgetTarget: number; totalRaised: number; progressPercent: number; eventsCount: number; status: string }[];
     recentEvents: { id: string; name: string; type: string; date: string; income: number; expenses: number; netProfit: number }[];
     beneficiaryRanking: { beneficiaryId: string; fullName: string; total: number }[];
-    scoutRaffleEarnings: { beneficiaryId: string; fullName: string; totalScoutEarnings: number; byEvent: { eventId: string; eventName: string; scoutEarnings: number }[] }[];
+    scoutRaffleEarnings: { beneficiaryId: string; fullName: string; totalScoutEarnings: number; totalContributions: number; byEvent: { eventId: string; eventName: string; scoutEarnings: number }[] }[];
     evolution: { label: string; total: number }[];
   }> {
     const projects = await this.projectRepo.find({
@@ -190,24 +193,42 @@ export class ReportsService {
       else ev.scoutEarnings += scoutEarnings;
     });
 
-    const scoutBeneficiaryIds = Array.from(scoutEarningsMap.keys());
+    const contributionsAll = await this.contributionRepo.find({
+      where: projectId ? { projectId } : undefined,
+      select: ['beneficiaryId', 'amount'],
+    });
+    const contributionsByBeneficiary = new Map<string, number>();
+    contributionsAll.forEach((c) => {
+      contributionsByBeneficiary.set(c.beneficiaryId, (contributionsByBeneficiary.get(c.beneficiaryId) ?? 0) + Number(c.amount));
+    });
+
+    const scoutBeneficiaryIds = Array.from(new Set([...scoutEarningsMap.keys(), ...contributionsByBeneficiary.keys()]));
     const scoutBeneficiaries = scoutBeneficiaryIds.length
       ? await this.beneficiaryRepo.find({
           where: { id: In(scoutBeneficiaryIds) },
           select: ['id', 'firstName', 'lastName'],
         })
       : [];
-    const scoutNameMap = new Map(scoutBeneficiaries.map((b) => [b.id, `${b.firstName} ${b.lastName}`]));
-    const scoutRaffleEarnings = Array.from(scoutEarningsMap.entries())
-      .map(([beneficiaryId, entry]) => ({
-        beneficiaryId,
-        fullName: scoutNameMap.get(beneficiaryId) || 'Sin nombre',
-        totalScoutEarnings: entry.total,
-        byEvent: Array.from(entry.byEvent.entries())
-          .map(([eventId, v]) => ({ eventId, eventName: v.eventName, scoutEarnings: v.scoutEarnings }))
-          .sort((a, b) => a.eventName.localeCompare(b.eventName)),
-      }))
-      .sort((a, b) => b.totalScoutEarnings - a.totalScoutEarnings);
+    const scoutNameMap = new Map(scoutBeneficiaries.map((b) => [b.id, `${b.lastName}, ${b.firstName}`]));
+    const scoutRaffleEarnings = scoutBeneficiaryIds
+      .map((beneficiaryId) => {
+        const entry = scoutEarningsMap.get(beneficiaryId);
+        const totalScoutEarnings = entry?.total ?? 0;
+        const totalContributions = contributionsByBeneficiary.get(beneficiaryId) ?? 0;
+        const byEvent = entry
+          ? Array.from(entry.byEvent.entries())
+              .map(([eventId, v]) => ({ eventId, eventName: v.eventName, scoutEarnings: v.scoutEarnings }))
+              .sort((a, b) => a.eventName.localeCompare(b.eventName))
+          : [];
+        return {
+          beneficiaryId,
+          fullName: scoutNameMap.get(beneficiaryId) || 'Sin nombre',
+          totalScoutEarnings,
+          totalContributions,
+          byEvent,
+        };
+      })
+      .sort((a, b) => b.totalScoutEarnings + b.totalContributions - (a.totalScoutEarnings + a.totalContributions));
 
     return {
       projects: projectStats,
@@ -245,28 +266,46 @@ export class ReportsService {
       net: Number(e.income) - Number(e.expenses),
     }));
 
-    const rankingRows = await this.saleRepo
-      .createQueryBuilder('s')
-      .select('s.beneficiaryId', 'beneficiaryId')
-      .addSelect('SUM(s.amount)', 'total')
-      .innerJoin('s.event', 'ev')
-      .where('ev.projectId = :projectId', { projectId })
-      .groupBy('s.beneficiaryId')
-      .orderBy('total', 'DESC')
-      .getRawMany();
-    const bIds = rankingRows.map((r) => r.beneficiaryId).filter(Boolean);
+    const eventIds = events.map((e) => e.id);
+    const earningsByBeneficiary = new Map<string, number>();
+    if (eventIds.length > 0) {
+      const salesWithProduct = await this.saleRepo.find({
+        where: { eventId: In(eventIds) },
+        relations: ['product'],
+      });
+      salesWithProduct.forEach((s) => {
+        if (!s.beneficiaryId || !s.product) return;
+        const product = s.product as Product;
+        const earningsPerUnit = product.scoutEarningsPerUnit != null ? Number(product.scoutEarningsPerUnit) : Number(product.pricePerUnit) || 0;
+        const add = (Number(s.quantity) || 0) * earningsPerUnit;
+        earningsByBeneficiary.set(s.beneficiaryId, (earningsByBeneficiary.get(s.beneficiaryId) ?? 0) + add);
+      });
+      const soldNumbers = await this.raffleNumberRepo.find({
+        where: { status: RaffleNumberStatus.SOLD },
+        relations: ['raffle'],
+      });
+      soldNumbers.forEach((n) => {
+        const raffle = n.raffle as Raffle;
+        if (!raffle || !eventIds.includes(raffle.eventId) || !n.beneficiaryId) return;
+        const scoutPerNum = raffle.scoutEarningsPerNumber != null ? Number(raffle.scoutEarningsPerNumber) : Number(raffle.pricePerNumber) || 0;
+        earningsByBeneficiary.set(n.beneficiaryId, (earningsByBeneficiary.get(n.beneficiaryId) ?? 0) + scoutPerNum);
+      });
+    }
+    const bIds = Array.from(earningsByBeneficiary.keys());
     const bens = bIds.length
       ? await this.beneficiaryRepo.find({
           where: { id: In(bIds) },
           select: ['id', 'firstName', 'lastName'],
         })
       : [];
-    const nameMap = new Map(bens.map((b) => [b.id, `${b.firstName} ${b.lastName}`]));
-    const beneficiaryRanking = rankingRows.map((r) => ({
-      beneficiaryId: r.beneficiaryId,
-      fullName: nameMap.get(r.beneficiaryId) || 'Sin nombre',
-      total: parseFloat(r.total || '0'),
-    }));
+    const nameMap = new Map(bens.map((b) => [b.id, `${b.lastName}, ${b.firstName}`]));
+    const beneficiaryRanking = bIds
+      .map((beneficiaryId) => ({
+        beneficiaryId,
+        fullName: nameMap.get(beneficiaryId) || 'Sin nombre',
+        total: earningsByBeneficiary.get(beneficiaryId) ?? 0,
+      }))
+      .sort((a, b) => b.total - a.total);
 
     return {
       totalRaised,
@@ -276,6 +315,72 @@ export class ReportsService {
       incomeByEvent,
       beneficiaryRanking,
     };
+  }
+
+  /** Resumen por scout en un proyecto: aportes registrados + ganancia personal de eventos del proyecto */
+  async getProjectScoutSummary(projectId: string): Promise<{
+    beneficiaryId: string;
+    fullName: string;
+    totalContributions: number;
+    totalEarningsFromEvents: number;
+    total: number;
+  }[]> {
+    const project = await this.projectRepo.findOne({ where: { id: projectId } });
+    if (!project) throw new NotFoundException('Proyecto no encontrado');
+
+    const eventIds = (await this.eventRepo.find({ where: { projectId }, select: ['id'] })).map((e) => e.id);
+    const contributions = await this.contributionRepo.find({ where: { projectId } });
+    const contributionsByBeneficiary = new Map<string, number>();
+    contributions.forEach((c) => {
+      const id = c.beneficiaryId;
+      contributionsByBeneficiary.set(id, (contributionsByBeneficiary.get(id) ?? 0) + Number(c.amount));
+    });
+
+    const earningsByBeneficiary = new Map<string, number>();
+    if (eventIds.length > 0) {
+      const salesWithProduct = await this.saleRepo.find({
+        where: { eventId: In(eventIds) },
+        relations: ['product'],
+      });
+      salesWithProduct.forEach((s) => {
+        if (!s.beneficiaryId || !s.product) return;
+        const product = s.product as Product;
+        const earningsPerUnit = product.scoutEarningsPerUnit != null ? Number(product.scoutEarningsPerUnit) : Number(product.pricePerUnit) || 0;
+        const add = (Number(s.quantity) || 0) * earningsPerUnit;
+        earningsByBeneficiary.set(s.beneficiaryId, (earningsByBeneficiary.get(s.beneficiaryId) ?? 0) + add);
+      });
+      const soldNumbers = await this.raffleNumberRepo.find({
+        where: { status: RaffleNumberStatus.SOLD },
+        relations: ['raffle'],
+      });
+      soldNumbers.forEach((n) => {
+        const raffle = n.raffle as Raffle;
+        if (!raffle || !eventIds.includes(raffle.eventId) || !n.beneficiaryId) return;
+        const scoutPerNum = raffle.scoutEarningsPerNumber != null ? Number(raffle.scoutEarningsPerNumber) : Number(raffle.pricePerNumber) || 0;
+        earningsByBeneficiary.set(n.beneficiaryId, (earningsByBeneficiary.get(n.beneficiaryId) ?? 0) + scoutPerNum);
+      });
+    }
+
+    const allBeneficiaryIds = new Set([...contributionsByBeneficiary.keys(), ...earningsByBeneficiary.keys()]);
+    const beneficiaries = allBeneficiaryIds.size > 0
+      ? await this.beneficiaryRepo.find({
+          where: { id: In(Array.from(allBeneficiaryIds)) },
+          select: ['id', 'firstName', 'lastName'],
+        })
+      : [];
+    const nameMap = new Map(beneficiaries.map((b) => [b.id, `${b.firstName} ${b.lastName}`]));
+
+    return Array.from(allBeneficiaryIds).map((beneficiaryId) => {
+      const totalContributions = contributionsByBeneficiary.get(beneficiaryId) ?? 0;
+      const totalEarningsFromEvents = earningsByBeneficiary.get(beneficiaryId) ?? 0;
+      return {
+        beneficiaryId,
+        fullName: nameMap.get(beneficiaryId) || 'Sin nombre',
+        totalContributions,
+        totalEarningsFromEvents,
+        total: totalContributions + totalEarningsFromEvents,
+      };
+    }).sort((a, b) => b.total - a.total);
   }
 
   /** Ranking de scouts por rifas vendidas en un evento (solo rifas de ese evento) */

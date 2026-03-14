@@ -96,7 +96,7 @@ export type DashboardData = {
   projects: { id: string; name: string; budgetTarget: number; totalRaised: number; progressPercent: number; eventsCount: number; status: string }[];
   recentEvents: { id: string; name: string; type: string; date: string; income: number; expenses: number; netProfit: number }[];
   beneficiaryRanking: { beneficiaryId: string; fullName: string; total: number }[];
-  scoutRaffleEarnings: { beneficiaryId: string; fullName: string; totalScoutEarnings: number; byEvent: { eventId: string; eventName: string; scoutEarnings: number }[] }[];
+  scoutRaffleEarnings: { beneficiaryId: string; fullName: string; totalScoutEarnings: number; totalContributions: number; byEvent: { eventId: string; eventName: string; scoutEarnings: number }[] }[];
   evolution: { label: string; total: number }[];
 };
 
@@ -174,6 +174,24 @@ export const rafflesApi = {
   draw: (raffleId: string, count: number) => api.post<{ winners: { number: number; soldTo: string | null; beneficiaryName: string }[] }>(`/raffles/${raffleId}/draw`, { count }),
 };
 
+export type Contribution = {
+  id: string;
+  beneficiaryId: string;
+  beneficiary?: Beneficiary;
+  projectId: string;
+  amount: number;
+  date?: string;
+  note?: string;
+  createdAt: string;
+};
+
+export const contributionsApi = {
+  listByProject: (projectId: string) => api.get<Contribution[]>(`/contributions/project/${projectId}`),
+  create: (projectId: string, data: { beneficiaryId: string; amount: number; date?: string; note?: string }) =>
+    api.post<Contribution>(`/contributions/project/${projectId}`, data),
+  delete: (id: string) => api.delete(`/contributions/${id}`),
+};
+
 export const reportsApi = {
   dashboard: (projectId?: string) => api.get<DashboardData>('/reports/dashboard', { params: projectId ? { projectId } : {} }),
   projectFinancial: (id: string) => api.get<{
@@ -184,5 +202,12 @@ export const reportsApi = {
     incomeByEvent: { eventId: string; eventName: string; income: number; expenses: number; net: number }[];
     beneficiaryRanking: { beneficiaryId: string; fullName: string; total: number }[];
   }>(`/reports/project/${id}/financial`),
+  getProjectScoutSummary: (projectId: string) => api.get<{
+    beneficiaryId: string;
+    fullName: string;
+    totalContributions: number;
+    totalEarningsFromEvents: number;
+    total: number;
+  }[]>(`/reports/project/${projectId}/scout-summary`),
   getEventRaffleRanking: (eventId: string) => api.get<{ beneficiaryId: string; fullName: string; totalSold: number; scoutEarnings: number }[]>(`/reports/events/${eventId}/raffle-ranking`),
 };

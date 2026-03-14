@@ -80,7 +80,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '1.25rem', minHeight: 280 }}>
-          <h3 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Ranking beneficiarios</h3>
+          <h3 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Ranking protagonistas</h3>
           <div style={{ height: 220, width: '100%' }}>
             {rankingChart.labels.length ? <Doughnut data={rankingChart} options={{ responsive: true, maintainAspectRatio: false }} /> : <p style={{ color: 'var(--text-muted)' }}>Sin datos</p>}
           </div>
@@ -88,36 +88,41 @@ export default function Dashboard() {
       </div>
 
       <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '1.25rem', marginBottom: '1.5rem' }}>
-        <h3 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Ganancias personales (scouts)</h3>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>Total por scout: rifas + otros eventos (empanadas, ventas, etc.). Desglose por evento debajo.</p>
+        <h3 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Ganancias personales y aportes (scouts)</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>Aportes al proyecto y ganancia personal por eventos (rifas, empanadas, ventas, etc.). Desglose por evento debajo.</p>
         <div className="table-responsive">
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-              <th style={{ padding: '0.5rem 0', color: 'var(--text-muted)', fontWeight: 500 }}>Scout / Beneficiario</th>
-              <th style={{ padding: '0.5rem 0', color: 'var(--text-muted)', fontWeight: 500 }}>Total ganancia personal</th>
+              <th style={{ padding: '0.5rem 0', color: 'var(--text-muted)', fontWeight: 500 }}>Scout / Protagonista</th>
+              <th style={{ padding: '0.5rem 0', color: 'var(--text-muted)', fontWeight: 500 }}>Aportes</th>
+              <th style={{ padding: '0.5rem 0', color: 'var(--text-muted)', fontWeight: 500 }}>Ganancia personal</th>
+              <th style={{ padding: '0.5rem 0', color: 'var(--text-muted)', fontWeight: 500 }}>Total</th>
             </tr>
           </thead>
           <tbody>
-            {(data.scoutRaffleEarnings ?? []).map((r) => (
+            {(data.scoutRaffleEarnings ?? []).map((r) => {
+              const total = (r.totalContributions ?? 0) + (r.totalScoutEarnings ?? 0);
+              return (
               <tr key={r.beneficiaryId} style={{ borderBottom: '1px solid var(--border)' }}>
                 <td style={{ padding: '0.75rem 0', verticalAlign: 'top' }}>
                   <div>{r.fullName}</div>
-                  {(r.byEvent ?? []).length > 0 && (
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                      {r.byEvent.map((e) => (
-                        <div key={e.eventId}>{e.eventName}: ${e.scoutEarnings.toLocaleString()}</div>
-                      ))}
-                    </div>
-                  )}
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                    {(r.totalContributions ?? 0) > 0 && <div>Aportes: ${(r.totalContributions ?? 0).toLocaleString()}</div>}
+                    {(r.byEvent ?? []).map((e) => (
+                      <div key={e.eventId}>{e.eventName}: ${e.scoutEarnings.toLocaleString()}</div>
+                    ))}
+                  </div>
                 </td>
-                <td style={{ padding: '0.75rem 0', color: 'var(--success)', fontWeight: 600, verticalAlign: 'top' }}>${r.totalScoutEarnings.toLocaleString()}</td>
+                <td style={{ padding: '0.75rem 0', verticalAlign: 'top' }}>${(r.totalContributions ?? 0).toLocaleString()}</td>
+                <td style={{ padding: '0.75rem 0', color: 'var(--success)', verticalAlign: 'top' }}>${(r.totalScoutEarnings ?? 0).toLocaleString()}</td>
+                <td style={{ padding: '0.75rem 0', color: 'var(--success)', fontWeight: 600, verticalAlign: 'top' }}>${total.toLocaleString()}</td>
               </tr>
-            ))}
+            );})}
           </tbody>
         </table>
         </div>
-        {!(data.scoutRaffleEarnings ?? []).length && <p style={{ color: 'var(--text-muted)', padding: '1rem 0' }}>Aún no hay ganancias por rifas.</p>}
+        {!(data.scoutRaffleEarnings ?? []).length && <p style={{ color: 'var(--text-muted)', padding: '1rem 0' }}>Aún no hay ganancias ni aportes registrados.</p>}
       </section>
 
       <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '1.25rem' }}>

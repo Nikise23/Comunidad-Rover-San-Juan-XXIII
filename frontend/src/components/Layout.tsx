@@ -5,7 +5,7 @@ import Footer from './Footer';
 const navItems = [
   { to: '/', label: 'Dashboard' },
   { to: '/projects', label: 'Proyectos' },
-  { to: '/beneficiaries', label: 'Beneficiarios' },
+  { to: '/beneficiaries', label: 'Protagonistas' },
   { to: '/events', label: 'Eventos' },
   { to: '/raffles', label: 'Rifas' },
 ];

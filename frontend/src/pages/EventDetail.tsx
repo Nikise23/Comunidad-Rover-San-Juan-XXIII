@@ -29,7 +29,7 @@ function buildEventCsv(
     ['Ganancia del evento', profit].map(enc).join(sep),
     '',
     'Ventas registradas',
-    ['Beneficiario', 'Producto', 'Cantidad', 'Monto', 'Ganancia personal'].map(enc).join(sep),
+    ['Protagonista', 'Producto', 'Cantidad', 'Monto', 'Ganancia personal'].map(enc).join(sep),
     ...salesList.map((s) => {
       const beneficiary = (s.beneficiary as { firstName?: string; lastName?: string } | undefined);
       const name = beneficiary ? `${beneficiary.firstName || ''} ${beneficiary.lastName || ''}`.trim() : s.beneficiaryId;
@@ -38,7 +38,7 @@ function buildEventCsv(
     }),
     '',
     'Ranking de ventas',
-    ['#', 'Beneficiario', 'Total ventas', 'Ganancia personal'].map(enc).join(sep),
+    ['#', 'Protagonista', 'Total ventas', 'Ganancia personal'].map(enc).join(sep),
     ...ranking.map((r, i) => [i + 1, r.fullName, r.total, r.scoutEarnings].map(enc).join(sep)),
   ];
   return '\uFEFF' + lines.join('\r\n'); // BOM for Excel
@@ -216,6 +216,7 @@ export default function EventDetail() {
             <p style={{ color: 'var(--text-muted)' }}>{event.type} · {(event as any).project?.name}</p>
             <p style={{ marginTop: 8 }}>Fecha: {typeof event.date === 'string' ? event.date.split('T')[0] : event.date}</p>
             <p>Ingresos: ${Number(event.income).toLocaleString()} · Gastos: ${Number(event.expenses).toLocaleString()} · <strong style={{ color: net >= 0 ? 'var(--success)' : 'var(--danger)' }}>Ganancia: ${net.toLocaleString()}</strong></p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 4 }}>Ingresos = dinero recaudado por el evento (ventas, rifas). Gastos = dinero gastado. Ganancia = Ingresos − Gastos (resultado del evento).</p>
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <button type="button" className="touch-target" style={btnEdit} onClick={openEditEvent}>Editar evento</button>
@@ -305,7 +306,7 @@ export default function EventDetail() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                <th style={{ padding: '0.5rem 0' }}>Beneficiario</th>
+                <th style={{ padding: '0.5rem 0' }}>Protagonista</th>
                 <th style={{ padding: '0.5rem 0' }}>Producto</th>
                 <th style={{ padding: '0.5rem 0' }}>Cantidad</th>
                 <th style={{ padding: '0.5rem 0' }}>Monto</th>
@@ -361,7 +362,7 @@ export default function EventDetail() {
           <div className="modal-content" style={{ background: 'var(--surface)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }} onClick={(e) => e.stopPropagation()}>
             <h3 style={{ marginBottom: '1rem' }}>Registrar venta</h3>
             <form onSubmit={addSale}>
-              <label style={{ display: 'block', marginBottom: 8 }}>Beneficiario</label>
+              <label style={{ display: 'block', marginBottom: 8 }}>Protagonista</label>
               <select required value={saleForm.beneficiaryId} onChange={(e) => setSaleForm((f) => ({ ...f, beneficiaryId: e.target.value }))} style={{ width: '100%', padding: '0.5rem', marginBottom: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}>
                 <option value="">Seleccionar</option>
                 {beneficiaries.map((b) => <option key={b.id} value={b.id}>{b.firstName} {b.lastName}</option>)}

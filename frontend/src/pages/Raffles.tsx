@@ -287,7 +287,7 @@ export default function Raffles() {
 
           {summary.byBeneficiary && summary.byBeneficiary.length > 0 && (
             <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '1rem', marginBottom: '1.5rem' }}>
-              <h3 style={{ marginBottom: '0.75rem', fontSize: '1rem' }}>Por beneficiario</h3>
+              <h3 style={{ marginBottom: '0.75rem', fontSize: '1rem' }}>Por protagonista</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
                 {summary.byBeneficiary.map((b) => (
                   <div key={b.beneficiaryId} style={{ padding: '0.75rem', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)' }}>
@@ -371,7 +371,7 @@ export default function Raffles() {
             <form onSubmit={doAssign}>
               <label style={{ display: 'block', marginBottom: 8 }}>Número</label>
               <input type="number" required min={1} max={selectedRaffle.totalNumbers} value={assignForm.number || ''} onChange={(e) => setAssignForm((f) => ({ ...f, number: Number(e.target.value) || 0 }))} style={{ width: '100%', padding: '0.5rem', marginBottom: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }} />
-              <label style={{ display: 'block', marginBottom: 8 }}>Beneficiario</label>
+              <label style={{ display: 'block', marginBottom: 8 }}>Protagonista</label>
               <select value={assignForm.beneficiaryId} onChange={(e) => setAssignForm((f) => ({ ...f, beneficiaryId: e.target.value }))} style={{ width: '100%', padding: '0.5rem', marginBottom: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}>
                 <option value="">Sin asignar</option>
                 {beneficiaries.map((b) => <option key={b.id} value={b.id}>{b.firstName} {b.lastName}</option>)}
@@ -391,7 +391,7 @@ export default function Raffles() {
             <h3 style={{ marginBottom: '1rem' }}>Asignar por rangos</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 10 }}>Ejemplos: 1-10 · 15 · 20-25 · 1-10, 15, 20-25</p>
             <form onSubmit={doRangesAssign}>
-              <label style={{ display: 'block', marginBottom: 8 }}>Beneficiario</label>
+              <label style={{ display: 'block', marginBottom: 8 }}>Protagonista</label>
               <select required value={rangesForm.beneficiaryId} onChange={(e) => setRangesForm((f) => ({ ...f, beneficiaryId: e.target.value }))} style={{ width: '100%', padding: '0.5rem', marginBottom: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}>
                 <option value="">Seleccionar</option>
                 {beneficiaries.map((b) => <option key={b.id} value={b.id}>{b.firstName} {b.lastName}</option>)}
@@ -415,7 +415,7 @@ export default function Raffles() {
             <form onSubmit={doBlocks}>
               <label style={{ display: 'block', marginBottom: 8 }}>Números por bloque (opcional)</label>
               <input type="number" min={1} value={blocksForm.numbersPerBlock || ''} onChange={(e) => setBlocksForm((f) => ({ ...f, numbersPerBlock: Number(e.target.value) || 0 }))} style={{ width: '100%', padding: '0.5rem', marginBottom: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }} placeholder="Ej. 10" />
-              <label style={{ display: 'block', marginBottom: 8 }}>Beneficiarios (orden)</label>
+              <label style={{ display: 'block', marginBottom: 8 }}>Protagonistas (orden)</label>
               <div style={{ maxHeight: 200, overflow: 'auto', border: '1px solid var(--border)', borderRadius: 8, padding: 8 }}>
                 {beneficiaries.map((b) => (
                   <label key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, cursor: 'pointer' }}>
@@ -445,7 +445,7 @@ export default function Raffles() {
               {continuousForm.map((a, i) => (
                 <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
                   <select value={a.beneficiaryId} onChange={(e) => setContinuousForm((f) => f.map((x, j) => j === i ? { ...x, beneficiaryId: e.target.value } : x))} style={{ flex: 1, padding: '0.5rem', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}>
-                    <option value="">Beneficiario</option>
+                    <option value="">Protagonista</option>
                     {beneficiaries.map((b) => <option key={b.id} value={b.id}>{b.firstName} {b.lastName}</option>)}
                   </select>
                   <input type="number" min={0} placeholder="Cant." value={a.count || ''} onChange={(e) => setContinuousForm((f) => f.map((x, j) => j === i ? { ...x, count: Number(e.target.value) || 0 } : x))} style={{ width: 80, padding: '0.5rem', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }} />
@@ -467,7 +467,7 @@ export default function Raffles() {
             <h3 style={{ marginBottom: '1rem' }}>Distribución aleatoria</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 10 }}>Repartir números disponibles en partes iguales al azar entre los seleccionados.</p>
             <form onSubmit={doRandom}>
-              <label style={{ display: 'block', marginBottom: 8 }}>Beneficiarios</label>
+              <label style={{ display: 'block', marginBottom: 8 }}>Protagonistas</label>
               <div style={{ maxHeight: 200, overflow: 'auto', border: '1px solid var(--border)', borderRadius: 8, padding: 8 }}>
                 {beneficiaries.map((b) => (
                   <label key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, cursor: 'pointer' }}>

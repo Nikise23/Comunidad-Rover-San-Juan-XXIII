@@ -8,5 +8,5 @@ export class AssignBlocksDto {
   @IsOptional()
   @IsNumber()
   @Min(1)
-  numbersPerBlock?: number; // ej. 10 → cada beneficiario recibe bloques de 10 (1-10, 11-20, ...)
+  numbersPerBlock?: number; // ej. 10 → cada protagonista recibe bloques de 10 (1-10, 11-20, ...)
 }

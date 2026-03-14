@@ -15,6 +15,11 @@ export class ReportsController {
     return this.reportsService.getProjectFinancialSummary(id);
   }
 
+  @Get('project/:id/scout-summary')
+  getProjectScoutSummary(@Param('id') projectId: string) {
+    return this.reportsService.getProjectScoutSummary(projectId);
+  }
+
   @Get('events/:eventId/raffle-ranking')
   getEventRaffleRanking(@Param('eventId') eventId: string) {
     return this.reportsService.getEventRaffleRanking(eventId);

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { Event } from '../events/entities/event.entity';
 import { Raffle } from './entities/raffle.entity';
 import { RaffleNumber, RaffleNumberStatus } from './entities/raffle-number.entity';
 import { CreateRaffleDto } from './dto/create-raffle.dto';
@@ -36,7 +37,25 @@ export class RafflesService {
     private readonly raffleRepo: Repository<Raffle>,
     @InjectRepository(RaffleNumber)
     private readonly raffleNumberRepo: Repository<RaffleNumber>,
+    @InjectRepository(Event)
+    private readonly eventRepo: Repository<Event>,
   ) {}
+
+  /** Recalcula los ingresos del evento de tipo rifa según números vendidos (y actualiza event.income). */
+  async recalcRaffleEventIncome(eventId: string): Promise<number> {
+    const raffles = await this.raffleRepo.find({
+      where: { eventId },
+      relations: ['numbers'],
+    });
+    let total = 0;
+    for (const r of raffles) {
+      const price = Number(r.pricePerNumber) || 0;
+      const sold = (r.numbers || []).filter((n) => n.status === RaffleNumberStatus.SOLD).length;
+      total += sold * price;
+    }
+    await this.eventRepo.update(eventId, { income: total });
+    return total;
+  }
 
   async create(dto: CreateRaffleDto): Promise<Raffle> {
     const raffle = this.raffleRepo.create(dto);
@@ -118,18 +137,23 @@ export class RafflesService {
     if (!rn) throw new BadRequestException(`Número ${dto.number} no existe en esta rifa`);
     rn.beneficiaryId = dto.beneficiaryId ?? null;
     rn.status = dto.status ?? (dto.beneficiaryId ? RaffleNumberStatus.ASSIGNED : RaffleNumberStatus.AVAILABLE);
-    return this.raffleNumberRepo.save(rn);
+    const saved = await this.raffleNumberRepo.save(rn);
+    if (raffle.eventId) await this.recalcRaffleEventIncome(raffle.eventId);
+    return saved;
   }
 
   async setNumberStatus(raffleId: string, number: number, status: RaffleNumberStatus, soldTo?: string): Promise<RaffleNumber> {
     const rn = await this.raffleNumberRepo.findOne({
       where: { raffleId, number },
-      relations: ['beneficiary'],
+      relations: ['beneficiary', 'raffle'],
     });
     if (!rn) throw new NotFoundException('Número no encontrado');
     rn.status = status;
     rn.soldTo = status === RaffleNumberStatus.SOLD ? (soldTo ?? null) : null;
-    return this.raffleNumberRepo.save(rn);
+    const saved = await this.raffleNumberRepo.save(rn);
+    const raffle = rn.raffle as Raffle;
+    if (raffle?.eventId) await this.recalcRaffleEventIncome(raffle.eventId);
+    return saved;
   }
 
   async getRaffleSummary(raffleId: string): Promise<{
@@ -288,6 +312,7 @@ export class RafflesService {
       { raffleId, number: In(nums) },
       update,
     );
+    if (raffle.eventId && (result.affected ?? 0) > 0) await this.recalcRaffleEventIncome(raffle.eventId);
     return { updated: result.affected ?? 0 };
   }
 
@@ -304,11 +329,11 @@ export class RafflesService {
     return { released: result.affected ?? 0 };
   }
 
-  /** Export CSV: Beneficiario, Número, Estado, Comprador */
+  /** Export CSV: Protagonista, Número, Estado, Comprador */
   async getExportCsv(raffleId: string): Promise<string> {
     const raffle = await this.findOne(raffleId);
     const numbers = raffle.numbers || [];
-    const header = 'Beneficiario/Scout,Número,Estado,Comprador';
+    const header = 'Protagonista/Scout,Número,Estado,Comprador';
     const escape = (s: string) => {
       const t = String(s ?? '').replace(/"/g, '""');
       return t.includes(',') || t.includes('"') || t.includes('\n') ? `"${t}"` : t;

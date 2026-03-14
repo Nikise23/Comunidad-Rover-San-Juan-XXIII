@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { RafflesService } from '../raffles/raffles.service';
 import { Event } from './entities/event.entity';
 import { Product } from './entities/product.entity';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -15,6 +16,7 @@ export class EventsService {
     private readonly eventRepo: Repository<Event>,
     @InjectRepository(Product)
     private readonly productRepo: Repository<Product>,
+    private readonly rafflesService: RafflesService,
   ) {}
 
   async create(dto: CreateEventDto): Promise<Event> {
@@ -46,6 +48,14 @@ export class EventsService {
       relations: ['project', 'responsible', 'products'],
     });
     if (!event) throw new NotFoundException('Evento no encontrado');
+    if (event.type === 'rifa') {
+      await this.rafflesService.recalcRaffleEventIncome(event.id);
+      const updated = await this.eventRepo.findOne({
+        where: { id },
+        relations: ['project', 'responsible', 'products'],
+      });
+      return updated ?? event;
+    }
     return event;
   }
 
