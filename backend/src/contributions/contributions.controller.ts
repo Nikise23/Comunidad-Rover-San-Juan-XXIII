@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Patch } from '@nestjs/common';
 import { ContributionsService } from './contributions.service';
 import { CreateContributionDto } from './dto/create-contribution.dto';
 
@@ -17,6 +17,11 @@ export class ContributionsController {
     @Body() dto: CreateContributionDto,
   ) {
     return this.contributionsService.create(projectId, dto);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: Partial<CreateContributionDto>) {
+    return this.contributionsService.update(id, dto);
   }
 
   @Delete(':id')

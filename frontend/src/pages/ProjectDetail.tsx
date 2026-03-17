@@ -9,7 +9,15 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 const btn = { padding: '0.35rem 0.65rem', border: 'none', borderRadius: 8, fontSize: '0.85rem', cursor: 'pointer' as const };
 const btnEdit = { ...btn, background: 'var(--surface-hover)', color: 'var(--text)' };
-const btnDanger = { ...btn, background: 'var(--danger)', color: '#fff' };
+const btnDanger = { ...btn, background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)' };
+
+function todayLocalISO() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +29,7 @@ export default function ProjectDetail() {
   const [beneficiaries, setBeneficiaries] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
   const [editModal, setEditModal] = useState(false);
   const [contributionModal, setContributionModal] = useState(false);
+  const [editingContribution, setEditingContribution] = useState<Contribution | null>(null);
   const [contributionForm, setContributionForm] = useState({ beneficiaryId: '', amount: 0, date: '', note: '' });
   const [contributionBeneficiarySearch, setContributionBeneficiarySearch] = useState('');
   const [form, setForm] = useState({ name: '', description: '', budgetTarget: 0, startDate: '', endDate: '', status: 'activo' });
@@ -70,8 +79,22 @@ export default function ProjectDetail() {
   };
 
   const openAddContribution = () => {
-    setContributionForm({ beneficiaryId: '', amount: 0, date: new Date().toISOString().slice(0, 10), note: '' });
+    setEditingContribution(null);
+    setContributionForm({ beneficiaryId: '', amount: 0, date: todayLocalISO(), note: '' });
     setContributionBeneficiarySearch('');
+    setContributionModal(true);
+  };
+
+  const openEditContribution = (c: Contribution) => {
+    setEditingContribution(c);
+    setContributionForm({
+      beneficiaryId: c.beneficiaryId,
+      amount: Number(c.amount),
+      date: c.date ? String(c.date).slice(0, 10) : '',
+      note: c.note || '',
+    });
+    const b = c.beneficiary as any;
+    setContributionBeneficiarySearch(b ? `${b.firstName || ''} ${b.lastName || ''}`.trim() : '');
     setContributionModal(true);
   };
 
@@ -90,13 +113,18 @@ export default function ProjectDetail() {
   const saveContribution = (e: React.FormEvent) => {
     e.preventDefault();
     if (!id || !contributionForm.beneficiaryId || contributionForm.amount <= 0) return;
-    contributionsApi.create(id, {
+    const payload = {
       beneficiaryId: contributionForm.beneficiaryId,
       amount: contributionForm.amount,
       date: contributionForm.date || undefined,
       note: contributionForm.note || undefined,
-    }).then(() => {
+    };
+    const req = editingContribution
+      ? contributionsApi.update(editingContribution.id, payload)
+      : contributionsApi.create(id, payload);
+    req.then(() => {
       setContributionModal(false);
+      setEditingContribution(null);
       load();
     });
   };
@@ -104,6 +132,40 @@ export default function ProjectDetail() {
   const deleteContribution = (c: Contribution) => {
     if (!window.confirm('¿Eliminar este aporte?')) return;
     contributionsApi.delete(c.id).then(() => load());
+  };
+
+  const dniMap = new Map(beneficiaries.map((b) => [b.id, (b as any).dni || '']));
+  const contributionsCountByBeneficiary = contributions.reduce<Map<string, number>>((map, c) => {
+    const current = map.get(c.beneficiaryId) ?? 0;
+    map.set(c.beneficiaryId, current + 1);
+    return map;
+  }, new Map());
+  const totalAportes = scoutSummary.reduce((sum, s) => sum + (s.totalContributions || 0), 0);
+  const totalScoutsAportaron = scoutSummary.filter((s) => (s.totalContributions || 0) > 0).length;
+
+  const downloadAportesCsv = () => {
+    if (!scoutSummary.length) return;
+    const sep = ';';
+    const enc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+    const header = ['Scout', 'DNI', 'Aportes', 'Ganancia personal (eventos)', 'Total', 'Cantidad de aportes'].map(enc).join(sep);
+    const rows = scoutSummary.map((s) => {
+      const dni = dniMap.get(s.beneficiaryId) ?? '';
+      const aportes = s.totalContributions || 0;
+      const ganancia = s.totalEarningsFromEvents || 0;
+      const total = s.total || aportes + ganancia;
+      const count = contributionsCountByBeneficiary.get(s.beneficiaryId) ?? 0;
+      return [s.fullName, dni, aportes, ganancia, total, count].map(enc).join(sep);
+    });
+    const csv = '\uFEFF' + [header, ...rows].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `aportes_proyecto_${project?.name || ''}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
   const removeProject = () => {
@@ -118,10 +180,13 @@ export default function ProjectDetail() {
   const target = Number(project.budgetTarget) || 1;
   const progress = Math.min(100, Math.round((totalRaised / target) * 100));
 
+  const accentColor = typeof window !== 'undefined'
+    ? (getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f59e0b')
+    : '#f59e0b';
   const incomeChart = financial?.incomeByEvent?.length ? {
     labels: financial.incomeByEvent.map((e: any) => e.eventName),
     datasets: [
-      { label: 'Ingresos', data: financial.incomeByEvent.map((e: any) => e.income), backgroundColor: 'rgba(245, 158, 11, 0.7)' },
+      { label: 'Ingresos', data: financial.incomeByEvent.map((e: any) => e.income), backgroundColor: accentColor + 'b3' },
       { label: 'Gastos', data: financial.incomeByEvent.map((e: any) => e.expenses), backgroundColor: 'rgba(239, 68, 68, 0.5)' },
     ],
   } : null;
@@ -168,12 +233,27 @@ export default function ProjectDetail() {
       <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '1.25rem', marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: 8 }}>
           <h3 style={{ margin: 0 }}>Aportes y avance de scouts</h3>
-          <button type="button" className="touch-target" onClick={openAddContribution} style={{ padding: '0.4rem 0.8rem', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: 8, fontWeight: 600 }}>
-            Registrar aporte
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={downloadAportesCsv}
+              style={{ padding: '0.4rem 0.8rem', background: 'var(--surface-hover)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 500 }}
+            >
+              Descargar CSV
+            </button>
+            <button type="button" className="touch-target" onClick={openAddContribution} style={{ padding: '0.4rem 0.8rem', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: 8, fontWeight: 600 }}>
+              Registrar aporte
+            </button>
+          </div>
         </div>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 4 }}>
           Lo que cada scout va pagando (aportes) más la ganancia personal de los eventos del proyecto.
+        </p>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text)', marginBottom: 4 }}>
+          Total aportes: <strong>${totalAportes.toLocaleString()}</strong>
+        </p>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+          Scouts que aportaron: <strong style={{ color: 'var(--text)' }}>{totalScoutsAportaron}</strong>
         </p>
         <div className="table-responsive" style={{ marginBottom: '1rem' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -202,12 +282,24 @@ export default function ProjectDetail() {
           <>
             <h4 style={{ marginTop: '1rem', marginBottom: '0.5rem', fontSize: '0.95rem' }}>Últimos aportes registrados</h4>
             <ul style={{ listStyle: 'none' }}>
-              {contributions.slice(0, 10).map((c) => (
-                <li key={c.id} style={{ padding: '0.4rem 0', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
-                  <span>{(c.beneficiary as any) ? `${(c.beneficiary as any).firstName} ${(c.beneficiary as any).lastName}` : c.beneficiaryId} · ${Number(c.amount).toLocaleString()} {c.date ? ` · ${String(c.date).slice(0, 10)}` : ''}</span>
-                  <button type="button" style={{ ...btnDanger, fontSize: '0.75rem' }} onClick={() => deleteContribution(c)}>Eliminar</button>
-                </li>
-              ))}
+              {contributions.slice(0, 10).map((c) => {
+                const b: any = c.beneficiary;
+                const name = b ? `${b.firstName} ${b.lastName}` : c.beneficiaryId;
+                const dateLabel = c.date ? String(c.date).slice(0, 10) : '';
+                return (
+                  <li key={c.id} style={{ padding: '0.4rem 0', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+                    <span>
+                      {name} · ${Number(c.amount).toLocaleString()}
+                      {dateLabel && ` · ${dateLabel}`}
+                      {c.note && ` · ${c.note}`}
+                    </span>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button type="button" style={{ ...btnEdit, fontSize: '0.75rem' }} onClick={() => openEditContribution(c)}>Editar</button>
+                      <button type="button" style={{ ...btnDanger, fontSize: '0.75rem' }} onClick={() => deleteContribution(c)}>Eliminar</button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </>
         )}
@@ -231,7 +323,7 @@ export default function ProjectDetail() {
       {contributionModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, padding: 16 }} onClick={() => setContributionModal(false)}>
           <div className="modal-content" style={{ background: 'var(--surface)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginBottom: '1rem' }}>Registrar aporte</h3>
+            <h3 style={{ marginBottom: '1rem' }}>{editingContribution ? 'Editar aporte' : 'Registrar aporte'}</h3>
             <form onSubmit={saveContribution}>
               <label style={{ display: 'block', marginBottom: 8 }}>Scout / Protagonista</label>
               <input

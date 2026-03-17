@@ -32,9 +32,17 @@ export default function Dashboard() {
   if (loading) return <div style={{ padding: '2rem' }}>Cargando dashboard...</div>;
   if (!data) return null;
 
+  const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f59e0b';
+  const totalAportesDashboard = (data.scoutRaffleEarnings ?? []).reduce(
+    (sum, r) => sum + (r.totalContributions ?? 0),
+    0,
+  );
+  const totalScoutsAportaronDashboard = (data.scoutRaffleEarnings ?? []).filter(
+    (r) => (r.totalContributions ?? 0) > 0,
+  ).length;
   const evolutionChart = {
     labels: data.evolution.map((e) => e.label),
-    datasets: [{ label: 'Recaudación', data: data.evolution.map((e) => e.total), backgroundColor: 'rgba(245, 158, 11, 0.7)' }],
+    datasets: [{ label: 'Recaudación', data: data.evolution.map((e) => e.total), backgroundColor: accentColor + 'b3' }],
   };
 
   const rankingChart = {
@@ -89,7 +97,11 @@ export default function Dashboard() {
 
       <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '1.25rem', marginBottom: '1.5rem' }}>
         <h3 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Ganancias personales y aportes (scouts)</h3>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>Aportes al proyecto y ganancia personal por eventos (rifas, empanadas, ventas, etc.). Desglose por evento debajo.</p>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 4 }}>Aportes al proyecto y ganancia personal por eventos (rifas, empanadas, ventas, etc.). Desglose por evento debajo.</p>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text)', marginBottom: '1rem' }}>
+          Total aportes: <strong>${totalAportesDashboard.toLocaleString()}</strong> · Scouts que aportaron:{' '}
+          <strong>{totalScoutsAportaronDashboard}</strong>
+        </p>
         <div className="table-responsive">
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>

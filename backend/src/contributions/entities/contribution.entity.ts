@@ -32,10 +32,10 @@ export class Contribution {
   amount: number;
 
   @Column({ type: 'date', nullable: true })
-  date: Date;
+  date: string | null;
 
   @Column({ type: 'text', nullable: true })
-  note: string;
+  note: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

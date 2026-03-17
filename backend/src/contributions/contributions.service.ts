@@ -24,10 +24,28 @@ export class ContributionsService {
       projectId,
       beneficiaryId: dto.beneficiaryId,
       amount: dto.amount,
-      date: dto.date ? new Date(dto.date) : new Date(),
-      note: dto.note,
+      date: dto.date ?? null,
+      note: dto.note ?? null,
     });
     return this.contributionRepo.save(contribution);
+  }
+
+  async update(id: string, dto: Partial<CreateContributionDto>): Promise<Contribution> {
+    const c = await this.contributionRepo.findOne({ where: { id } });
+    if (!c) throw new NotFoundException('Aporte no encontrado');
+    if (dto.beneficiaryId !== undefined) {
+      c.beneficiaryId = dto.beneficiaryId;
+    }
+    if (dto.amount !== undefined) {
+      c.amount = dto.amount;
+    }
+    if (dto.date !== undefined) {
+      (c as any).date = dto.date ?? null;
+    }
+    if (dto.note !== undefined) {
+      c.note = dto.note ?? null;
+    }
+    return this.contributionRepo.save(c);
   }
 
   async remove(id: string): Promise<void> {

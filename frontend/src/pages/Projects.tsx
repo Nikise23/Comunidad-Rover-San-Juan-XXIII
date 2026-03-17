@@ -4,7 +4,7 @@ import { projectsApi, type Project } from '../api/client';
 
 const btn = { padding: '0.35rem 0.65rem', border: 'none', borderRadius: 8, fontSize: '0.85rem', cursor: 'pointer' as const };
 const btnEdit = { ...btn, background: 'var(--surface-hover)', color: 'var(--text)' };
-const btnDanger = { ...btn, background: 'var(--danger)', color: '#fff' };
+const btnDanger = { ...btn, background: 'var(--accent)', color: '#000' };
 
 export default function Projects() {
   const [list, setList] = useState<Project[]>([]);

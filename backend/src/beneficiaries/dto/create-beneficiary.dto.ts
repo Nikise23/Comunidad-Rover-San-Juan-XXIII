@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, IsUUID, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsUUID, IsBoolean, IsDateString } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class CreateBeneficiaryDto {
@@ -14,6 +14,10 @@ export class CreateBeneficiaryDto {
   @IsOptional()
   @IsString()
   contact?: string;
+
+  @IsOptional()
+  @IsDateString()
+  birthDate?: string;
 
   @IsOptional()
   @IsString()

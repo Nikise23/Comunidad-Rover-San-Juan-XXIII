@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { BeneficiariesService } from './beneficiaries.service';
 import { CreateBeneficiaryDto } from './dto/create-beneficiary.dto';
 import { UpdateBeneficiaryDto } from './dto/update-beneficiary.dto';
@@ -15,6 +16,14 @@ export class BeneficiariesController {
   @Get()
   findAll() {
     return this.beneficiariesService.findAll();
+  }
+
+  @Get('export/csv')
+  async exportCsv(@Res() res: Response) {
+    const csv = await this.beneficiariesService.exportCsv();
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=\"protagonistas.csv\"');
+    res.send(csv);
   }
 
   @Get(':id')

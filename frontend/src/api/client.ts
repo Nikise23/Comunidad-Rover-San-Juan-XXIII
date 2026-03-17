@@ -24,6 +24,8 @@ export type Beneficiary = {
   firstName: string;
   lastName: string;
   dni: string;
+  /** Fecha de nacimiento en formato ISO (YYYY-MM-DD) */
+  birthDate?: string | null;
   contact?: string;
   role?: string;
   /** Si entregó documentación */
@@ -114,6 +116,7 @@ export const beneficiariesApi = {
   create: (data: Partial<Beneficiary> & { projectIds?: string[] }) => api.post<Beneficiary>('/beneficiaries', data),
   update: (id: string, data: Partial<Beneficiary> & { projectIds?: string[] }) => api.patch<Beneficiary>(`/beneficiaries/${id}`, data),
   delete: (id: string) => api.delete(`/beneficiaries/${id}`),
+  exportCsv: () => api.get<Blob>('/beneficiaries/export/csv', { responseType: 'blob' as any }),
 };
 
 export const eventsApi = {
@@ -189,6 +192,8 @@ export const contributionsApi = {
   listByProject: (projectId: string) => api.get<Contribution[]>(`/contributions/project/${projectId}`),
   create: (projectId: string, data: { beneficiaryId: string; amount: number; date?: string; note?: string }) =>
     api.post<Contribution>(`/contributions/project/${projectId}`, data),
+  update: (id: string, data: { beneficiaryId?: string; amount?: number; date?: string; note?: string }) =>
+    api.patch<Contribution>(`/contributions/${id}`, data),
   delete: (id: string) => api.delete(`/contributions/${id}`),
 };
 

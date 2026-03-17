@@ -20,7 +20,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 const btn = { padding: '0.35rem 0.65rem', border: 'none', borderRadius: 8, fontSize: '0.85rem', cursor: 'pointer' as const };
 const btnEdit = { ...btn, background: 'var(--surface-hover)', color: 'var(--text)' };
-const btnDanger = { ...btn, background: 'var(--danger)', color: '#fff' };
+const btnDanger = { ...btn, background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)' };
 const COLS = 10;
 
 export default function Raffles() {

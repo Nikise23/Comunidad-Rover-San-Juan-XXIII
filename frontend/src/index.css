@@ -14,6 +14,36 @@
   --font-display: 'Outfit', system-ui, sans-serif;
 }
 
+/* Tema claro */
+:root[data-theme='light'] {
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --surface-hover: #f3f4f6;
+  --border: #d1d5db;
+  --text: #111827;
+  --text-muted: #6b7280;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --success: #16a34a;
+  --danger: #dc2626;
+}
+
+/* Paletas de acento */
+:root[data-accent='orange'] {
+  --accent: #f59e0b;
+  --accent-hover: #d97706;
+}
+
+:root[data-accent='violet'] {
+  --accent: #a855f7;
+  --accent-hover: #7c3aed;
+}
+
+:root[data-accent='blue'] {
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

@@ -35,6 +35,7 @@ export class BeneficiariesService {
       lastName: dto.lastName,
       dni: dto.dni,
       contact: dto.contact,
+      birthDate: dto.birthDate ?? null,
       role: normalizeRole(dto.role) ?? dto.role,
       documentationSubmitted: dto.documentationSubmitted ?? false,
     });
@@ -78,7 +79,11 @@ export class BeneficiariesService {
       const existing = await this.beneficiaryRepo.findOne({ where: { dni: dto.dni } });
       if (existing) throw new ConflictException('Ya existe un protagonista con ese DNI');
     }
-    Object.assign(beneficiary, dto);
+    if (dto.birthDate !== undefined) {
+      (beneficiary as any).birthDate = dto.birthDate ?? null;
+    }
+    const { projectIds: _ignoredProjectIds, birthDate: _ignoredBirthDate, ...rest } = dto as any;
+    Object.assign(beneficiary, rest);
     delete (beneficiary as any).projectIds;
     if (dto.role !== undefined) {
       beneficiary.role = normalizeRole(dto.role) ?? dto.role;
@@ -103,5 +108,40 @@ export class BeneficiariesService {
     if (!b) throw new NotFoundException('Protagonista no encontrado');
     b.projects = projectIds.map((id) => ({ id } as any));
     await this.beneficiaryRepo.save(b);
+  }
+
+  async exportCsv(): Promise<string> {
+    const list = await this.beneficiaryRepo.find({
+      relations: ['projects'],
+      order: { lastName: 'ASC', firstName: 'ASC' },
+    });
+    const header = 'Apellido,Nombre,DNI,FechaNacimiento,Rol,Contacto,Documentacion,Proyectos';
+    const toDdMmYyyy = (d?: string | null): string => {
+      if (!d) return '';
+      const base = String(d).slice(0, 10); // YYYY-MM-DD
+      const [y, m, day] = base.split('-');
+      if (!y || !m || !day) return base;
+      return `${day}-${m}-${y}`;
+    };
+    const escape = (s: string) => {
+      const t = String(s ?? '').replace(/"/g, '""');
+      return t.includes(',') || t.includes('"') || t.includes('\n') ? `"${t}"` : t;
+    };
+    const rows = list.map((b) => {
+      const proyectos = (b.projects || []).map((p) => p.name).join(' | ');
+      const doc = b.documentationSubmitted ? 'Entregada' : 'Pendiente';
+      const rol = (b.role || '').trim() === '' ? '' : (b.role || '');
+      return [
+        b.lastName,
+        b.firstName,
+        b.dni,
+        toDdMmYyyy(b.birthDate),
+        rol,
+        b.contact || '',
+        doc,
+        proyectos,
+      ].map(escape).join(',');
+    });
+    return [header, ...rows].join('\n');
   }
 }

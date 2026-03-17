@@ -27,6 +27,9 @@ export class Beneficiary {
   @Column({ nullable: true })
   contact: string;
 
+  @Column({ type: 'date', nullable: true })
+  birthDate: string | null;
+
   @Column({ nullable: true })
   role: string;
 

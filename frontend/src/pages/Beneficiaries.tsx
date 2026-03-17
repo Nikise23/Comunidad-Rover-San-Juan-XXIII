@@ -3,18 +3,25 @@ import { beneficiariesApi, projectsApi, type Beneficiary, type Project } from '.
 
 const btn = { padding: '0.35rem 0.65rem', border: 'none', borderRadius: 8, fontSize: '0.85rem', cursor: 'pointer' as const };
 const btnEdit = { ...btn, background: 'var(--surface-hover)', color: 'var(--text)' };
-const btnDanger = { ...btn, background: 'var(--danger)', color: '#fff' };
+const btnDanger = { ...btn, background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)' };
 
 /** Carpeta de Google Drive para subir documentación de protagonistas */
 const DOCS_DRIVE_FOLDER_URL = import.meta.env.VITE_DRIVE_DOCS_FOLDER || 'https://drive.google.com/drive/folders/1ZudLvqLE5H5XNwmRkXj9hggw_hT6o5RH?usp=sharing';
 
 export default function Beneficiaries() {
+  const formatDateDisplay = (value?: string | null) => {
+    if (!value) return '';
+    const base = String(value).slice(0, 10); // YYYY-MM-DD
+    const [y, m, d] = base.split('-');
+    if (!y || !m || !d) return base;
+    return `${d}-${m}-${y}`;
+  };
   const [list, setList] = useState<Beneficiary[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', contact: '', role: '', documentationSubmitted: false, projectIds: [] as string[] });
+  const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', contact: '', birthDate: '', role: '', documentationSubmitted: false, projectIds: [] as string[] });
   const [searchQuery, setSearchQuery] = useState('');
 
   const load = () => {
@@ -27,7 +34,7 @@ export default function Beneficiaries() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ firstName: '', lastName: '', dni: '', contact: '', role: '', documentationSubmitted: false, projectIds: [] });
+    setForm({ firstName: '', lastName: '', dni: '', contact: '', birthDate: '', role: '', documentationSubmitted: false, projectIds: [] });
     setModal(true);
   };
 
@@ -39,6 +46,7 @@ export default function Beneficiaries() {
       lastName: b.lastName,
       dni: b.dni,
       contact: b.contact || '',
+      birthDate: b.birthDate ? String(b.birthDate).slice(0, 10) : '',
       role: b.role || '',
       documentationSubmitted: Boolean(b.documentationSubmitted),
       projectIds,
@@ -63,7 +71,7 @@ export default function Beneficiaries() {
     } else {
       beneficiariesApi.create(payload).then(() => {
         setModal(false);
-        setForm({ firstName: '', lastName: '', dni: '', contact: '', role: '', documentationSubmitted: false, projectIds: [] });
+        setForm({ firstName: '', lastName: '', dni: '', contact: '', birthDate: '', role: '', documentationSubmitted: false, projectIds: [] });
         load();
       });
     }
@@ -99,11 +107,38 @@ export default function Beneficiaries() {
     return (a.firstName || '').localeCompare(b.firstName || '', 'es');
   });
 
+  const totalProtagonistas = list.filter(
+    (b) => (b.role || '').trim().toLowerCase() === 'protagonista' || (b.role || '').trim().toLowerCase() === 'scout',
+  ).length;
+  const totalEducadores = list.filter(
+    (b) => (b.role || '').trim().toLowerCase() === 'educador',
+  ).length;
+
   return (
     <div className="page-container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ fontFamily: 'var(--font-display)' }}>Protagonistas</h1>
-        <button type="button" className="touch-target" onClick={openCreate} style={{ padding: '0.5rem 1rem', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600 }}>Nuevo protagonista</button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" className="touch-target" onClick={async () => {
+            try {
+              const res = await beneficiariesApi.exportCsv();
+              const blob = new Blob([res.data as any], { type: 'text/csv;charset=utf-8;' });
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'protagonistas.csv';
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              window.URL.revokeObjectURL(url);
+            } catch {
+              // ignore errors for now
+            }
+          }} style={{ padding: '0.5rem 1rem', background: 'var(--surface-hover)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontWeight: 500 }}>
+            Descargar CSV
+          </button>
+          <button type="button" className="touch-target" onClick={openCreate} style={{ padding: '0.5rem 1rem', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600 }}>Nuevo protagonista</button>
+        </div>
       </div>
       {!loading && (
         <div style={{ marginBottom: '1rem' }}>
@@ -114,7 +149,11 @@ export default function Beneficiaries() {
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ width: '100%', maxWidth: 400, padding: '0.5rem 0.75rem', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}
           />
-          {q && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 4 }}>{sortedList.length} resultado{sortedList.length !== 1 ? 's' : ''}</p>}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 4, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            {q && <span>{sortedList.length} resultado{sortedList.length !== 1 ? 's' : ''}</span>}
+            <span>Total protagonistas: <strong style={{ color: 'var(--text)' }}>{totalProtagonistas}</strong></span>
+            <span>Total educadores: <strong style={{ color: 'var(--text)' }}>{totalEducadores}</strong></span>
+          </div>
         </div>
       )}
       {loading ? <p>Cargando...</p> : (
@@ -125,6 +164,7 @@ export default function Beneficiaries() {
               <tr style={{ background: 'var(--surface-hover)', textAlign: 'left' }}>
                 <th style={{ padding: '0.75rem 1rem' }}>Apellido, Nombre</th>
                 <th style={{ padding: '0.75rem 1rem' }}>DNI</th>
+                <th style={{ padding: '0.75rem 1rem' }}>Fecha nac.</th>
                 <th style={{ padding: '0.75rem 1rem' }}>Contacto</th>
                 <th style={{ padding: '0.75rem 1rem' }}>Rol</th>
                 <th style={{ padding: '0.75rem 1rem' }}>Documentación</th>
@@ -137,6 +177,7 @@ export default function Beneficiaries() {
                 <tr key={b.id} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ padding: '0.75rem 1rem' }}>{b.lastName}, {b.firstName}</td>
                   <td style={{ padding: '0.75rem 1rem' }}>{b.dni}</td>
+                  <td style={{ padding: '0.75rem 1rem' }}>{b.birthDate ? formatDateDisplay(b.birthDate) : '-'}</td>
                   <td style={{ padding: '0.75rem 1rem' }}>{b.contact || '-'}</td>
                   <td style={{ padding: '0.75rem 1rem' }}>{(b.role || '').toLowerCase().trim() === 'scout' ? 'Protagonista' : (b.role || '-')}</td>
                   <td style={{ padding: '0.75rem 1rem' }}>
@@ -187,6 +228,13 @@ export default function Beneficiaries() {
               <input required value={form.dni} onChange={(e) => setForm((f) => ({ ...f, dni: e.target.value }))} style={{ width: '100%', padding: '0.5rem', marginBottom: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }} />
               <label style={{ display: 'block', marginBottom: 8 }}>Contacto</label>
               <input value={form.contact} onChange={(e) => setForm((f) => ({ ...f, contact: e.target.value }))} style={{ width: '100%', padding: '0.5rem', marginBottom: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }} />
+              <label style={{ display: 'block', marginBottom: 8 }}>Fecha de nacimiento</label>
+              <input
+                type="date"
+                value={form.birthDate}
+                onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
+                style={{ width: '100%', padding: '0.5rem', marginBottom: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}
+              />
               <label style={{ display: 'block', marginBottom: 8 }}>Rol</label>
               <input value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} placeholder="ej. Protagonista" style={{ width: '100%', padding: '0.5rem', marginBottom: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }} />
               <div style={{ marginBottom: 12 }}>
