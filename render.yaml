@@ -1,30 +1,23 @@
 services:
   - type: web
-    name: comunidad-rover-app-backend
+    name: comunidad-rover-app
     runtime: node
     region: oregon
 
-    rootDir: backend
+    # Usamos la raíz del repo y construimos backend + frontend
+    rootDir: .
 
-    buildCommand: npm install && npm run build
-    startCommand: npm run start:prod
+    buildCommand: |
+      npm install --prefix backend
+      npm install --prefix frontend
+      npm run build --prefix frontend
+      npm run build --prefix backend
+
+    startCommand: npm run start:prod --prefix backend
 
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
-      # Añade DATABASE_URL en el Dashboard de Render (Environment) con tu connection string de Neon (Neon DB)
+      # URL de Neon (se completa en el panel de Render)
       - key: DATABASE_URL
-        sync: false
-
-  - type: web
-    name: comunidad-rover-app-frontend
-    env: static
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    envVars:
-      # URL pública del backend (se completa desde el panel de Render una vez creado el backend)
-      - key: VITE_API_URL
         sync: false
