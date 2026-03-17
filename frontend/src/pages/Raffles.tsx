@@ -23,6 +23,12 @@ const btnEdit = { ...btn, background: 'var(--surface-hover)', color: 'var(--text
 const btnDanger = { ...btn, background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)' };
 const COLS = 10;
 
+type BulkStatusForm = {
+  ranges: string;
+  status: RaffleNumberStatus;
+  soldTo: string;
+};
+
 export default function Raffles() {
   const [searchParams, setSearchParams] = useSearchParams();
   const raffleId = searchParams.get('raffle');
@@ -41,7 +47,7 @@ export default function Raffles() {
   const [randomModal, setRandomModal] = useState(false);
   const [randomForm, setRandomForm] = useState({ beneficiaryIds: [] as string[] });
   const [bulkStatusModal, setBulkStatusModal] = useState(false);
-  const [bulkStatusForm, setBulkStatusForm] = useState<{ ranges: string; status: RaffleNumberStatus; soldTo: string }>({ ranges: '', status: 'vendido', soldTo: '' });
+  const [bulkStatusForm, setBulkStatusForm] = useState<BulkStatusForm>({ ranges: '', status: 'vendido', soldTo: '' });
   const [bulkStatusError, setBulkStatusError] = useState('');
   const [bulkStatusLoading, setBulkStatusLoading] = useState(false);
   const [numberEditModal, setNumberEditModal] = useState<{ number: RaffleNumber } | null>(null);
