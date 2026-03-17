@@ -18,8 +18,9 @@ services:
       - key: DATABASE_URL
         sync: false
 
-  - type: static_site
+  - type: web
     name: comunidad-rover-app-frontend
+    env: static
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
