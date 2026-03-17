@@ -138,8 +138,14 @@ export default function Raffles() {
     if (!raffleId || !bulkStatusForm.ranges.trim()) return;
     setBulkStatusError('');
     setBulkStatusLoading(true);
-    const payload = { ranges: bulkStatusForm.ranges, status: bulkStatusForm.status };
-    if (bulkStatusForm.status === 'vendido' && bulkStatusForm.soldTo.trim()) payload.soldTo = bulkStatusForm.soldTo.trim();
+    const payload: { ranges: string; status: RaffleNumberStatus; soldTo?: string } = {
+      ranges: bulkStatusForm.ranges,
+      status: bulkStatusForm.status,
+    };
+    const soldTo = (bulkStatusForm as any).soldTo as string | undefined;
+    if (bulkStatusForm.status === 'vendido' && soldTo && soldTo.trim()) {
+      payload.soldTo = soldTo.trim();
+    }
     rafflesApi
       .setBulkStatus(raffleId, payload)
       .then((res) => {
