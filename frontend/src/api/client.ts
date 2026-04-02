@@ -2,10 +2,68 @@ import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+const TOKEN_KEY = 'rover_auth_token';
+
+export function getStoredToken(): string | null {
+  try {
+    return window.localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredToken(token: string | null) {
+  try {
+    if (token) window.localStorage.setItem(TOKEN_KEY, token);
+    else window.localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export const api = axios.create({
   baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
 });
+
+api.interceptors.request.use((config) => {
+  const t = getStoredToken();
+  if (t) {
+    config.headers.Authorization = `Bearer ${t}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    const status = err.response?.status;
+    const url = String(err.config?.url || '');
+    if (status === 401 && !url.includes('/auth/login') && !url.includes('/auth/register')) {
+      setStoredToken(null);
+      window.dispatchEvent(new CustomEvent('rover-auth-expired'));
+    }
+    return Promise.reject(err);
+  },
+);
+
+export type AuthUser = {
+  id: string;
+  username: string;
+  displayName?: string | null;
+};
+
+export const authApi = {
+  login: (username: string, password: string) =>
+    api.post<{ access_token: string; user: AuthUser }>('/auth/login', { username, password }),
+  register: (username: string, password: string, displayName?: string) =>
+    api.post<{ access_token: string; user: AuthUser }>('/auth/register', { username, password, displayName }),
+  me: () => api.get<AuthUser>('/auth/me'),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.patch<{ ok: boolean }>('/auth/me/password', { currentPassword, newPassword }),
+  changeUsername: (newUsername: string, currentPassword: string) =>
+    api.patch<{ access_token: string; user: AuthUser }>('/auth/me/username', { newUsername, currentPassword }),
+};
 
 export type Project = {
   id: string;

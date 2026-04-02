@@ -21,3 +21,12 @@ services:
       # URL de Neon (se completa en el panel de Render)
       - key: DATABASE_URL
         sync: false
+      # Origen del front (CORS). Ej.: https://comunidad-rover-frontend.onrender.com
+      - key: FRONTEND_URL
+        sync: false
+      # Obligatorio en producción: cadena larga y aleatoria para firmar JWT
+      - key: JWT_SECRET
+        sync: false
+      # Primera vez con la tabla users: poner true un deploy, luego quitar o false
+      - key: SYNC_DB
+        value: 'false'

@@ -1,0 +1,231 @@
+/* Pantalla de login — tarjeta tipo “sliding” con panel azul y formularios */
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 20%, rgba(37, 99, 235, 0.12), transparent),
+    radial-gradient(ellipse 70% 50% at 80% 80%, rgba(245, 158, 11, 0.08), transparent),
+    var(--bg);
+}
+
+.login-card {
+  display: flex;
+  width: 100%;
+  max-width: 880px;
+  min-height: 500px;
+  background: var(--surface);
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.login-hero {
+  flex: 1;
+  min-width: 280px;
+  background: linear-gradient(160deg, #1d4ed8 0%, #2563eb 45%, #1e3a8a 100%);
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2.5rem 2rem;
+  position: relative;
+}
+
+.login-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.06'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.login-hero-inner {
+  position: relative;
+  z-index: 1;
+}
+
+.login-hero h2 {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  letter-spacing: -0.02em;
+}
+
+.login-hero p {
+  margin: 0 0 1.75rem;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  opacity: 0.92;
+  max-width: 28ch;
+}
+
+.login-hero button {
+  align-self: flex-start;
+  padding: 0.65rem 1.5rem;
+  border-radius: 999px;
+  border: 2px solid rgba(248, 250, 252, 0.95);
+  background: transparent;
+  color: #f8fafc;
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: background 0.2s, color 0.2s;
+}
+
+.login-hero button:hover {
+  background: rgba(248, 250, 252, 0.12);
+}
+
+.login-forms {
+  flex: 1.1;
+  min-width: 300px;
+  padding: 2.25rem 2.25rem 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--surface);
+}
+
+.login-forms h2 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  color: var(--text);
+}
+
+.login-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0 0 1.25rem;
+}
+
+.login-social-row {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.login-social {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.login-divider {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0.25rem 0 1rem;
+}
+
+.login-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.95rem;
+  margin-bottom: 0.85rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.login-field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: none;
+  background: #1d4ed8;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.88rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: filter 0.15s, transform 0.1s;
+}
+
+.login-submit:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.login-submit:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.login-error {
+  font-size: 0.85rem;
+  color: var(--danger);
+  margin: -0.35rem 0 0.75rem;
+}
+
+.login-forms-wrap {
+  position: relative;
+  min-height: 280px;
+}
+
+.login-forms-wrap form {
+  display: flex;
+  flex-direction: column;
+}
+
+.login-form-panel {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-form-panel.active {
+  opacity: 1;
+  pointer-events: auto;
+  position: relative;
+}
+
+@media (max-width: 760px) {
+  .login-card {
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .login-hero {
+    min-height: auto;
+    padding: 1.5rem 1.5rem 1.25rem;
+  }
+
+  .login-forms {
+    padding: 1.5rem 1.5rem 2rem;
+  }
+
+  .login-forms-wrap {
+    min-height: 260px;
+  }
+}
