@@ -1,7 +1,13 @@
 /* Pantalla de login — tarjeta tipo “sliding” con panel azul y formularios */
 
-.login-page {
+.login-shell {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-page {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;

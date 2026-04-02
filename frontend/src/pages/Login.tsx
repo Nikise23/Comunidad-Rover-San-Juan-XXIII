@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react';
+import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
 import './Login.css';
 
@@ -70,111 +71,114 @@ export default function Login() {
       : 'Ingresá tus datos para acceder a proyectos, eventos y rifas del grupo.';
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <aside className="login-hero">
-          <div className="login-hero-inner">
-            <h2>{heroTitle}</h2>
-            <p>{heroText}</p>
-            {mode === 'signin' ? (
-              <button type="button" onClick={() => { setMode('signup'); setError(null); }}>
-                Crear cuenta
-              </button>
-            ) : (
-              <button type="button" onClick={() => { setMode('signin'); setError(null); }}>
-                Iniciar sesión
-              </button>
-            )}
-          </div>
-        </aside>
-
-        <section className="login-forms">
-          <div className="login-forms-wrap">
-            <div className={`login-form-panel ${mode === 'signin' ? 'active' : ''}`}>
-              <h2>Iniciar sesión</h2>
-              <p className="login-sub">Comunidad Rover San Juan XXIII</p>
-              <div className="login-social-row" aria-hidden="true">
-                <span className="login-social" title="Próximamente">G</span>
-                <span className="login-social" title="Próximamente">f</span>
-                <span className="login-social" title="Próximamente">&lt;&gt;</span>
-                <span className="login-social" title="Próximamente">in</span>
-              </div>
-              <p className="login-divider">o usá tu usuario del grupo</p>
-              {error && mode === 'signin' ? <p className="login-error">{error}</p> : null}
-              <form onSubmit={onSignIn}>
-                <input
-                  className="login-field"
-                  placeholder="Usuario"
-                  name="username"
-                  autoComplete="username"
-                  value={signInUser}
-                  onChange={(e) => setSignInUser(e.target.value)}
-                  required
-                />
-                <input
-                  className="login-field"
-                  type="password"
-                  placeholder="Contraseña"
-                  name="password"
-                  autoComplete="current-password"
-                  value={signInPass}
-                  onChange={(e) => setSignInPass(e.target.value)}
-                  required
-                />
-                <button type="submit" className="login-submit" disabled={busy}>
-                  {busy ? 'Ingresando…' : 'Ingresar'}
+    <div className="login-shell">
+      <div className="login-page">
+        <div className="login-card">
+          <aside className="login-hero">
+            <div className="login-hero-inner">
+              <h2>{heroTitle}</h2>
+              <p>{heroText}</p>
+              {mode === 'signin' ? (
+                <button type="button" onClick={() => { setMode('signup'); setError(null); }}>
+                  Crear cuenta
                 </button>
-              </form>
-            </div>
-
-            <div className={`login-form-panel ${mode === 'signup' ? 'active' : ''}`}>
-              <h2>Crear cuenta</h2>
-              <p className="login-sub">Solo funciona si el administrador habilitó el registro.</p>
-              <div className="login-social-row" aria-hidden="true">
-                <span className="login-social" title="Próximamente">G</span>
-                <span className="login-social" title="Próximamente">f</span>
-                <span className="login-social" title="Próximamente">&lt;&gt;</span>
-                <span className="login-social" title="Próximamente">in</span>
-              </div>
-              <p className="login-divider">o registrate con usuario y contraseña</p>
-              {error && mode === 'signup' ? <p className="login-error">{error}</p> : null}
-              <form onSubmit={onSignUp}>
-                <input
-                  className="login-field"
-                  placeholder="Nombre visible (opcional)"
-                  value={signUpName}
-                  onChange={(e) => setSignUpName(e.target.value)}
-                  autoComplete="name"
-                />
-                <input
-                  className="login-field"
-                  placeholder="Usuario"
-                  name="username"
-                  autoComplete="username"
-                  value={signUpUser}
-                  onChange={(e) => setSignUpUser(e.target.value)}
-                  required
-                  minLength={3}
-                />
-                <input
-                  className="login-field"
-                  type="password"
-                  placeholder="Contraseña (mín. 8 caracteres)"
-                  name="password"
-                  autoComplete="new-password"
-                  value={signUpPass}
-                  onChange={(e) => setSignUpPass(e.target.value)}
-                  required
-                  minLength={8}
-                />
-                <button type="submit" className="login-submit" disabled={busy}>
-                  {busy ? 'Creando…' : 'Crear cuenta'}
+              ) : (
+                <button type="button" onClick={() => { setMode('signin'); setError(null); }}>
+                  Iniciar sesión
                 </button>
-              </form>
+              )}
             </div>
-          </div>
-        </section>
+          </aside>
+
+          <section className="login-forms">
+            <div className="login-forms-wrap">
+              <div className={`login-form-panel ${mode === 'signin' ? 'active' : ''}`}>
+                <h2>Iniciar sesión</h2>
+                <p className="login-sub">Comunidad Rover San Juan XXIII</p>
+                <div className="login-social-row" aria-hidden="true">
+                  <span className="login-social" title="Próximamente">G</span>
+                  <span className="login-social" title="Próximamente">f</span>
+                  <span className="login-social" title="Próximamente">&lt;&gt;</span>
+                  <span className="login-social" title="Próximamente">in</span>
+                </div>
+                <p className="login-divider">o usá tu usuario del grupo</p>
+                {error && mode === 'signin' ? <p className="login-error">{error}</p> : null}
+                <form onSubmit={onSignIn}>
+                  <input
+                    className="login-field"
+                    placeholder="Usuario"
+                    name="username"
+                    autoComplete="username"
+                    value={signInUser}
+                    onChange={(e) => setSignInUser(e.target.value)}
+                    required
+                  />
+                  <input
+                    className="login-field"
+                    type="password"
+                    placeholder="Contraseña"
+                    name="password"
+                    autoComplete="current-password"
+                    value={signInPass}
+                    onChange={(e) => setSignInPass(e.target.value)}
+                    required
+                  />
+                  <button type="submit" className="login-submit" disabled={busy}>
+                    {busy ? 'Ingresando…' : 'Ingresar'}
+                  </button>
+                </form>
+              </div>
+
+              <div className={`login-form-panel ${mode === 'signup' ? 'active' : ''}`}>
+                <h2>Crear cuenta</h2>
+                <p className="login-sub">Solo funciona si el administrador habilitó el registro.</p>
+                <div className="login-social-row" aria-hidden="true">
+                  <span className="login-social" title="Próximamente">G</span>
+                  <span className="login-social" title="Próximamente">f</span>
+                  <span className="login-social" title="Próximamente">&lt;&gt;</span>
+                  <span className="login-social" title="Próximamente">in</span>
+                </div>
+                <p className="login-divider">o registrate con usuario y contraseña</p>
+                {error && mode === 'signup' ? <p className="login-error">{error}</p> : null}
+                <form onSubmit={onSignUp}>
+                  <input
+                    className="login-field"
+                    placeholder="Nombre visible (opcional)"
+                    value={signUpName}
+                    onChange={(e) => setSignUpName(e.target.value)}
+                    autoComplete="name"
+                  />
+                  <input
+                    className="login-field"
+                    placeholder="Usuario"
+                    name="username"
+                    autoComplete="username"
+                    value={signUpUser}
+                    onChange={(e) => setSignUpUser(e.target.value)}
+                    required
+                    minLength={3}
+                  />
+                  <input
+                    className="login-field"
+                    type="password"
+                    placeholder="Contraseña (mín. 8 caracteres)"
+                    name="password"
+                    autoComplete="new-password"
+                    value={signUpPass}
+                    onChange={(e) => setSignUpPass(e.target.value)}
+                    required
+                    minLength={8}
+                  />
+                  <button type="submit" className="login-submit" disabled={busy}>
+                    {busy ? 'Creando…' : 'Crear cuenta'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
+      <Footer />
     </div>
   );
 }
