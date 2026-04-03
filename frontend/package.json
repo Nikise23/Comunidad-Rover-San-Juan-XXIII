@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "export-logo-hidpi": "node scripts/export-logo-hidpi.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },
