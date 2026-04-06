@@ -45,6 +45,17 @@ npm run dev
 
 App en `http://localhost:5173`. Asegúrate de que el backend esté corriendo; el frontend llama a `http://localhost:3000` por defecto.
 
+### Sitio estático (Vite + React Router) en Render
+
+Si al recargar una URL como `/beneficiaries` aparece **Not Found**, el CDN está buscando un archivo en esa ruta. Hay que **reescribir** todas las rutas a `index.html`:
+
+1. En [Render Dashboard](https://dashboard.render.com) → tu **Static Site** → **Redirects/Rewrites** → **Add Rule**.
+2. **Source:** `/*`
+3. **Destination:** `/index.html`
+4. **Action:** **Rewrite** (no Redirect)
+
+Guardá y probá de nuevo. El archivo `frontend/public/_redirects` sirve en otros hosts (p. ej. Netlify); en Render la regla del panel es la que aplica.
+
 ## Estructura
 
 - **backend/src**

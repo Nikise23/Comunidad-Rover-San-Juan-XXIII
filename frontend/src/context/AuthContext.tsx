@@ -4,10 +4,15 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import { authApi, getStoredToken, setStoredToken, type AuthUser } from '../api/client';
+
+/** Cierre de sesión automático tras este tiempo sin interacción (ms). */
+const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
+const INACTIVITY_CHECK_MS = 30 * 1000;
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -24,6 +29,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastActivityRef = useRef(Date.now());
 
   const logout = useCallback(() => {
     setStoredToken(null);
@@ -56,6 +62,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener('rover-auth-expired', onExpired);
     return () => window.removeEventListener('rover-auth-expired', onExpired);
   }, [logout]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+    lastActivityRef.current = Date.now();
+    const bump = () => {
+      lastActivityRef.current = Date.now();
+    };
+    const events: (keyof WindowEventMap)[] = [
+      'click',
+      'keydown',
+      'scroll',
+      'touchstart',
+      'pointerdown',
+    ];
+    for (const ev of events) {
+      window.addEventListener(ev, bump, { passive: true });
+    }
+    const intervalId = window.setInterval(() => {
+      if (Date.now() - lastActivityRef.current >= INACTIVITY_LIMIT_MS) {
+        logout();
+      }
+    }, INACTIVITY_CHECK_MS);
+    return () => {
+      for (const ev of events) {
+        window.removeEventListener(ev, bump);
+      }
+      window.clearInterval(intervalId);
+    };
+  }, [user, logout]);
 
   const login = useCallback(async (username: string, password: string) => {
     const { data } = await authApi.login(username, password);
