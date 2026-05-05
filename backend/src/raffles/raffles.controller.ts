@@ -9,6 +9,7 @@ import { AssignContinuousDto } from './dto/assign-continuous.dto';
 import { AssignRandomDto } from './dto/assign-random.dto';
 import { AssignRangesDto } from './dto/assign-ranges.dto';
 import { BulkStatusDto } from './dto/bulk-status.dto';
+import { ImportRaffleCsvDto } from './dto/import-raffle-csv.dto';
 import { SetNumberStatusDto } from './dto/set-number-status.dto';
 import { DrawDto } from './dto/draw.dto';
 
@@ -37,6 +38,11 @@ export class RafflesController {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="rifa-${id.slice(0, 8)}.csv"`);
     res.send(csv);
+  }
+
+  @Post(':id/import/csv')
+  importCsv(@Param('id') id: string, @Body() dto: ImportRaffleCsvDto) {
+    return this.rafflesService.importFromCsv(id, dto.csv);
   }
 
   @Get(':id')

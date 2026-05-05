@@ -45,6 +45,22 @@ npm run dev
 
 App en `http://localhost:5173`. Asegúrate de que el backend esté corriendo; el frontend llama a `http://localhost:3000` por defecto.
 
+### Login (usuario inicial)
+
+La primera vez que la base de datos está **vacía** al arrancar la API, se crea un administrador:
+
+- **Usuario:** `rover_admin` (o el valor de `INITIAL_ADMIN_USERNAME` en `.env`)
+- **Contraseña:** la de `INITIAL_ADMIN_PASSWORD` en `.env`, o si no está, `RoverSJ23!2026`
+
+El nombre de usuario se guarda en **minúsculas**; podés escribir lo mismo en el login.
+
+Si “no podés entrar” al desarrollar:
+
+1. Que el backend esté en marcha (`npm run start:dev` en `backend`) y PostgreSQL accesible.
+2. Que el front muestre un error claro: si dice que **no conecta al servidor**, revisá que la API responda en la misma URL que usa el front (por defecto `http://localhost:3000`; podés definir `VITE_API_URL` en `frontend/.env`).
+3. **CORS:** en `.env` del backend, `FRONTEND_URL` debe coincidir con la URL **exacta** del navegador (mismo host, puerto y `http`/`https`). Por ejemplo `http://127.0.0.1:5173` ≠ `http://localhost:5173` para el navegador.
+4. Si la base ya tenía usuarios, el usuario inicial solo se creó si la tabla estaba vacía; usá la cuenta que corresponda o reset de datos/BD de desarrollo.
+
 ### Sitio estático (Vite + React Router) en Render
 
 Si al recargar una URL como `/beneficiaries` aparece **Not Found**, el CDN está buscando un archivo en esa ruta. Hay que **reescribir** todas las rutas a `index.html`:

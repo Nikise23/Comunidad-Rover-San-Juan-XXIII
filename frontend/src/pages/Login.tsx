@@ -5,6 +5,33 @@ import './Login.css';
 
 type Mode = 'signin' | 'signup';
 
+function formatAuthScreenError(err: unknown, context: 'login' | 'register'): string {
+  const ax = err as {
+    message?: string;
+    code?: string;
+    response?: { status?: number; data?: { message?: unknown } };
+  };
+  if (!ax.response) {
+    const target = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const network =
+      ax.message === 'Network Error' || ax.code === 'ERR_NETWORK' || ax.code === 'ECONNABORTED';
+    if (network) {
+      const devHint = import.meta.env.DEV
+        ? ` El frontend intenta hablar con: ${target}. Levantá la API en backend (npm run start:dev) o definí VITE_API_URL si usás otro host.`
+        : ' Comprobar que la API esté en línea y que VITE_API_URL en el build apunte al backend correcto (mismo dominio o CORS).';
+      return `No se pudo conectar con el servidor.${devHint}`;
+    }
+    return ax.message || (context === 'login' ? 'No se pudo iniciar sesión.' : 'No se pudo registrar.');
+  }
+  const raw = ax.response.data?.message;
+  if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === 'string').join(' ');
+  if (typeof raw === 'string') return raw;
+  if (ax.response.status === 401 && context === 'login') {
+    return 'Usuario o contraseña incorrectos.';
+  }
+  return context === 'login' ? 'No se pudo iniciar sesión.' : 'No se pudo crear la cuenta.';
+}
+
 /**
  * Pantalla de acceso sugerida: panel azul + formularios que alternan (inspirado en UI de referencia).
  */
@@ -28,11 +55,7 @@ export default function Login() {
     try {
       await login(signInUser.trim(), signInPass);
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? ((err as { response?: { data?: { message?: string } } }).response?.data?.message as string | undefined)
-          : undefined;
-      setError(msg || 'No se pudo iniciar sesión. Revisá usuario y contraseña.');
+      setError(formatAuthScreenError(err, 'login'));
     } finally {
       setBusy(false);
     }
@@ -49,15 +72,11 @@ export default function Login() {
     try {
       await register(signUpUser.trim(), signUpPass, signUpName.trim() || undefined);
     } catch (err: unknown) {
-      const ax = err as {
-        response?: { status?: number; data?: { message?: string | string[] } };
-      };
-      const raw = ax.response?.data?.message;
-      const msg = Array.isArray(raw) ? raw.join(', ') : raw;
+      const ax = err as { response?: { status?: number; data?: { message?: string | string[] } } };
       if (ax.response?.status === 403) {
         setError('El registro público está desactivado. Usá la cuenta que te dio el grupo o pedí acceso.');
       } else {
-        setError(typeof msg === 'string' ? msg : 'No se pudo crear la cuenta.');
+        setError(formatAuthScreenError(err, 'register'));
       }
     } finally {
       setBusy(false);

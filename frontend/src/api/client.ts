@@ -192,6 +192,7 @@ export const salesApi = {
   list: (params?: { eventId?: string; beneficiaryId?: string }) => api.get<Sale[]>('/sales', { params }),
   get: (id: string) => api.get<Sale>(`/sales/${id}`),
   create: (data: { quantity: number; beneficiaryId: string; eventId: string; productId: string }) => api.post<Sale>('/sales', data),
+  importCsv: (data: { eventId: string; csv: string }) => api.post<{ created: number }>('/sales/import/csv', data),
   update: (id: string, data: Partial<Sale>) => api.patch<Sale>(`/sales/${id}`, data),
   delete: (id: string) => api.delete(`/sales/${id}`),
   ranking: (eventId: string) => api.get<{ beneficiaryId: string; fullName: string; total: number; scoutEarnings: number }[]>(`/sales/ranking/${eventId}`),
@@ -208,11 +209,15 @@ export type RaffleSummary = {
   byBeneficiary: {
     beneficiaryId: string;
     fullName: string;
+    /** Total en cupón (números ligados al protagonista, todos los estados). */
     assigned: number;
     sold: number;
+    /** Pendientes dentro del cupón: total − vendidos. */
     remaining: number;
     moneyCollected: number;
     scoutEarnings: number;
+    /** Cupón: números ligados al protagonista (orden ascendente). */
+    numbers: number[];
   }[];
 };
 
@@ -232,6 +237,7 @@ export const rafflesApi = {
   releaseUnsold: (raffleId: string) => api.post<{ released: number }>(`/raffles/${raffleId}/numbers/release-unsold`),
   setNumberStatus: (raffleId: string, number: number, data: { status: RaffleNumberStatus; soldTo?: string }) => api.patch(`/raffles/${raffleId}/numbers/${number}/status`, data),
   exportCsv: (raffleId: string) => api.get<Blob>(`/raffles/${raffleId}/export/csv`, { responseType: 'blob' }),
+  importCsv: (raffleId: string, csv: string) => api.post<{ updated: number }>(`/raffles/${raffleId}/import/csv`, { csv }),
   draw: (raffleId: string, count: number) => api.post<{ winners: { number: number; soldTo: string | null; beneficiaryName: string }[] }>(`/raffles/${raffleId}/draw`, { count }),
 };
 

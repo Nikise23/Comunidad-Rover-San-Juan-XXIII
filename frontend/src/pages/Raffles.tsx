@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { rafflesApi, eventsApi, beneficiariesApi } from '../api/client';
 import type { Raffle, RaffleNumber, RaffleNumberStatus, RaffleSummary } from '../api/client';
@@ -29,6 +29,15 @@ type BulkStatusForm = {
   soldTo: string;
 };
 
+function formatImportCsvError(err: unknown): string {
+  const e = err as { response?: { data?: { message?: unknown } }; message?: string };
+  const raw = e.response?.data?.message;
+  if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === 'string').join('\n');
+  if (typeof raw === 'string') return raw;
+  if (typeof e.message === 'string' && e.message.length > 0) return e.message;
+  return 'No se pudo importar el CSV.';
+}
+
 export default function Raffles() {
   const [searchParams, setSearchParams] = useSearchParams();
   const raffleId = searchParams.get('raffle');
@@ -57,6 +66,12 @@ export default function Raffles() {
   const [drawResult, setDrawResult] = useState<{ number: number; soldTo: string | null; beneficiaryName: string }[] | null>(null);
   const [editModal, setEditModal] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', pricePerNumber: 0, totalNumbers: 0, scoutEarningsMode: 'total' as 'total' | 'fixed', scoutEarningsAmount: 0 });
+  const importCsvInputRef = useRef<HTMLInputElement>(null);
+  const [importCsvBanner, setImportCsvBanner] = useState<
+    null | { type: 'loading'; label: string } | { type: 'ok'; updated: number; secondsTotal: number; secondsUpload: number } | { type: 'err'; message: string }
+  >(null);
+
+  const importCsvBusy = importCsvBanner?.type === 'loading';
 
   const load = () => {
     rafflesApi.list().then((res) => setRaffles(res.data)).catch(() => setRaffles([]));
@@ -66,19 +81,40 @@ export default function Raffles() {
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
+    setImportCsvBanner(null);
+  }, [raffleId]);
+
+  useEffect(() => {
     if (!raffleId) {
       setSelectedRaffle(null);
       setSummary(null);
       return;
     }
-    rafflesApi.get(raffleId).then((res) => setSelectedRaffle(res.data)).catch(() => setSelectedRaffle(null));
-    rafflesApi.getSummary(raffleId).then((res) => setSummary(res.data)).catch(() => setSummary(null));
+    let cancelled = false;
+    Promise.all([rafflesApi.get(raffleId), rafflesApi.getSummary(raffleId)])
+      .then(([detail, sum]) => {
+        if (!cancelled) {
+          setSelectedRaffle(detail.data);
+          setSummary(sum.data);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSelectedRaffle(null);
+          setSummary(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [raffleId]);
 
   const refresh = () => {
     if (raffleId) {
-      rafflesApi.get(raffleId).then((r) => setSelectedRaffle(r.data));
-      rafflesApi.getSummary(raffleId).then((r) => setSummary(r.data));
+      Promise.all([rafflesApi.get(raffleId), rafflesApi.getSummary(raffleId)]).then(([r, s]) => {
+        setSelectedRaffle(r.data);
+        setSummary(s.data);
+      });
     }
     rafflesApi.list().then((r) => setRaffles(r.data));
   };
@@ -196,6 +232,46 @@ export default function Raffles() {
     }).catch(() => alert('Error al exportar'));
   };
 
+  const onImportCsvPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !raffleId) return;
+    const tFileStart = typeof performance !== 'undefined' ? performance.now() : 0;
+    setImportCsvBanner({ type: 'loading', label: 'Leyendo el archivo en el navegador…' });
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === 'string' ? reader.result : '';
+      const tAfterRead = typeof performance !== 'undefined' ? performance.now() : 0;
+      const readSeconds = tFileStart > 0 ? (tAfterRead - tFileStart) / 1000 : 0;
+      setImportCsvBanner({ type: 'loading', label: 'Enviando al servidor e importando…' });
+      const tUploadStart = typeof performance !== 'undefined' ? performance.now() : 0;
+      rafflesApi
+        .importCsv(raffleId, text)
+        .then((res) => {
+          const tEnd = typeof performance !== 'undefined' ? performance.now() : 0;
+          const uploadSeconds = tUploadStart > 0 ? (tEnd - tUploadStart) / 1000 : 0;
+          const totalSeconds = tFileStart > 0 ? (tEnd - tFileStart) / 1000 : uploadSeconds + readSeconds;
+          setImportCsvBanner({
+            type: 'ok',
+            updated: res.data.updated,
+            secondsTotal: totalSeconds,
+            secondsUpload: uploadSeconds,
+          });
+          refresh();
+        })
+        .catch((err: unknown) => {
+          setImportCsvBanner({ type: 'err', message: formatImportCsvError(err) });
+        });
+    };
+    reader.onerror = () => {
+      setImportCsvBanner({
+        type: 'err',
+        message: 'No se pudo leer el archivo. Comprobá permisos o que sea un archivo de texto/CSV válido.',
+      });
+    };
+    reader.readAsText(file, 'UTF-8');
+  };
+
   const doDraw = () => {
     if (!raffleId || drawCount < 1) return;
     rafflesApi.draw(raffleId, drawCount).then((res) => {
@@ -307,6 +383,23 @@ export default function Raffles() {
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                       Asignados: {b.assigned} · Vendidos: {b.sold} · Restantes: {b.remaining}
                     </div>
+                    {(b.numbers?.length ?? 0) > 0 && (
+                      <div
+                        title={b.numbers.join(', ')}
+                        style={{
+                          fontSize: '0.78rem',
+                          marginTop: 6,
+                          lineHeight: 1.35,
+                          color: 'var(--text-muted)',
+                          wordBreak: 'break-word',
+                          maxHeight: 100,
+                          overflowY: 'auto',
+                        }}
+                      >
+                        <span style={{ fontWeight: 600, color: 'var(--text-secondary, var(--text-muted))' }}>Números: </span>
+                        {b.numbers.join(', ')}
+                      </div>
+                    )}
                     <div style={{ fontSize: '0.9rem', marginTop: 4, color: 'var(--success)' }}>Recaudado: ${b.moneyCollected.toLocaleString()}</div>
                     <div style={{ fontSize: '0.85rem', marginTop: 2, color: 'var(--text-muted)' }}>Ganancia personal: ${(b.scoutEarnings ?? 0).toLocaleString()}</div>
                   </div>
@@ -323,9 +416,51 @@ export default function Raffles() {
             <button type="button" onClick={() => { setRandomModal(true); setRandomForm({ beneficiaryIds: [] }); }} style={btnEdit}>Distribución aleatoria</button>
             <button type="button" onClick={() => { setBulkStatusError(''); setBulkStatusModal(true); }} style={btnEdit}>Marcar estado (varios números)</button>
             <button type="button" onClick={doReleaseUnsold} style={{ ...btn, background: 'var(--surface-hover)', color: 'var(--text)' }}>Liberar no vendidos</button>
+            <input ref={importCsvInputRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={onImportCsvPick} />
+            <button type="button" disabled={importCsvBusy} onClick={() => importCsvInputRef.current?.click()} style={btnEdit}>
+              {importCsvBusy ? 'Importando…' : 'Importar CSV'}
+            </button>
             <button type="button" onClick={doExportCsv} style={btnEdit}>Exportar CSV</button>
             <button type="button" onClick={() => { setDrawModal(true); setDrawResult(null); setDrawCount(1); }} style={{ ...btn, background: 'var(--accent)', color: '#000' }}>Realizar sorteo</button>
           </div>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0 0 10px', maxWidth: 640, lineHeight: 1.4 }}>
+            Solo se pueden actualizar por CSV los cupones que ya existen en la rifa (1…total). Para sumar nuevos números, abrí «Editar rifa» y aumentá la cantidad total.
+          </p>
+          {importCsvBanner && (
+            <div
+              role={importCsvBanner.type === 'err' ? 'alert' : 'status'}
+              aria-live={importCsvBanner.type === 'err' ? 'assertive' : 'polite'}
+              style={{
+                marginBottom: '1rem',
+                padding: '0.65rem 0.85rem',
+                borderRadius: 8,
+                fontSize: '0.88rem',
+                whiteSpace: 'pre-wrap',
+                lineHeight: 1.45,
+                border: '1px solid var(--border)',
+                ...(importCsvBanner.type === 'loading'
+                  ? { background: 'var(--bg)', color: 'var(--text-muted)' }
+                  : importCsvBanner.type === 'ok'
+                    ? { borderColor: 'var(--success)', background: 'var(--surface)', color: 'var(--text)' }
+                    : { borderColor: 'var(--danger)', background: 'var(--surface)', color: 'var(--text)' }),
+              }}
+            >
+              {importCsvBanner.type === 'loading' && <strong style={{ color: 'var(--text)' }}>{importCsvBanner.label}</strong>}
+              {importCsvBanner.type === 'ok' && (
+                <>
+                  <strong style={{ color: 'var(--success)' }}>Importación correcta.</strong>{' '}
+                  Se actualizaron {importCsvBanner.updated} número(s). Tiempo total (lectura + red + servidor):{' '}
+                  {importCsvBanner.secondsTotal.toFixed(1)} s. Tiempo hasta respuesta del servidor:{' '}
+                  {importCsvBanner.secondsUpload.toFixed(1)} s.
+                </>
+              )}
+              {importCsvBanner.type === 'err' && (
+                <>
+                  <strong style={{ color: 'var(--danger)' }}>No se aplicó la importación.</strong> {importCsvBanner.message}
+                </>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -427,7 +562,23 @@ export default function Raffles() {
             <form onSubmit={doBlocks}>
               <label style={{ display: 'block', marginBottom: 8 }}>Números por bloque (opcional)</label>
               <input type="number" min={1} value={blocksForm.numbersPerBlock || ''} onChange={(e) => setBlocksForm((f) => ({ ...f, numbersPerBlock: Number(e.target.value) || 0 }))} style={{ width: '100%', padding: '0.5rem', marginBottom: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }} placeholder="Ej. 10" />
-              <label style={{ display: 'block', marginBottom: 8 }}>Protagonistas (orden)</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 10px', marginBottom: 8 }}>
+                <label style={{ margin: 0, flex: '1 1 auto' }}>Protagonistas (orden)</label>
+                <button
+                  type="button"
+                  onClick={() => setBlocksForm((f) => ({ ...f, beneficiaryIds: beneficiaries.map((x) => x.id) }))}
+                  style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem', background: 'var(--surface-hover)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer' }}
+                >
+                  Seleccionar todos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBlocksForm((f) => ({ ...f, beneficiaryIds: [] }))}
+                  style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer' }}
+                >
+                  Ninguno
+                </button>
+              </div>
               <div style={{ maxHeight: 200, overflow: 'auto', border: '1px solid var(--border)', borderRadius: 8, padding: 8 }}>
                 {beneficiaries.map((b) => (
                   <label key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, cursor: 'pointer' }}>

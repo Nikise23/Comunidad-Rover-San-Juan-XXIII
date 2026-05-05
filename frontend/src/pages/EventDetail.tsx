@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { eventsApi, salesApi, beneficiariesApi, rafflesApi, projectsApi, reportsApi } from '../api/client';
 import type { Event, Beneficiary, Product, Sale } from '../api/client';
@@ -44,6 +44,15 @@ function buildEventCsv(
   return '\uFEFF' + lines.join('\r\n'); // BOM for Excel
 }
 
+function formatSalesCsvImportErr(err: unknown): string {
+  const e = err as { response?: { data?: { message?: unknown } }; message?: string };
+  const raw = e.response?.data?.message;
+  if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === 'string').join('\n');
+  if (typeof raw === 'string') return raw;
+  if (typeof e.message === 'string' && e.message.length > 0) return e.message;
+  return 'Error al importar ventas.';
+}
+
 const btn = { padding: '0.35rem 0.65rem', border: 'none', borderRadius: 8, fontSize: '0.85rem', cursor: 'pointer' as const };
 const btnEdit = { ...btn, background: 'var(--surface-hover)', color: 'var(--text)' };
 const btnDanger = { ...btn, background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)' };
@@ -60,6 +69,13 @@ export default function EventDetail() {
   const [salesList, setSalesList] = useState<Sale[]>([]);
   const [saleModal, setSaleModal] = useState(false);
   const [saleForm, setSaleForm] = useState({ quantity: 0, beneficiaryId: '', productId: '' });
+  const saleImportCsvRef = useRef<HTMLInputElement>(null);
+  const [saleImportBanner, setSaleImportBanner] = useState<
+    | null
+    | { type: 'loading'; label: string }
+    | { type: 'ok'; created: number; sec: number }
+    | { type: 'err'; message: string }
+  >(null);
   const [productModal, setProductModal] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [productForm, setProductForm] = useState({ name: '', unit: '', pricePerUnit: 0, totalQuantity: 0, scoutEarningsMode: 'total' as 'total' | 'fixed', scoutEarningsAmount: 0 });
@@ -79,6 +95,10 @@ export default function EventDetail() {
 
   useEffect(() => {
     loadEvent();
+  }, [id]);
+
+  useEffect(() => {
+    setSaleImportBanner(null);
   }, [id]);
   useEffect(() => {
     beneficiariesApi.list().then((res) => setBeneficiaries(res.data)).catch(() => setBeneficiaries([]));
@@ -170,6 +190,35 @@ export default function EventDetail() {
     salesApi.delete(saleId).then(() => loadEvent());
   };
 
+  const saleImportBusy = saleImportBanner?.type === 'loading';
+
+  const onSalesImportPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !id) return;
+    const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
+    setSaleImportBanner({ type: 'loading', label: 'Leyendo archivo…' });
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === 'string' ? reader.result : '';
+      setSaleImportBanner({ type: 'loading', label: 'Enviando al servidor…' });
+      salesApi
+        .importCsv({ eventId: id, csv: text })
+        .then((res) => {
+          const sec = t0 > 0 ? (performance.now() - t0) / 1000 : 0;
+          setSaleImportBanner({ type: 'ok', created: res.data.created, sec });
+          loadEvent();
+        })
+        .catch((err: unknown) => {
+          setSaleImportBanner({ type: 'err', message: formatSalesCsvImportErr(err) });
+        });
+    };
+    reader.onerror = () => {
+      setSaleImportBanner({ type: 'err', message: 'No se pudo leer el archivo.' });
+    };
+    reader.readAsText(file, 'UTF-8');
+  };
+
   const openEditEvent = () => {
     if (!event) return;
     setEventForm({
@@ -229,7 +278,50 @@ export default function EventDetail() {
       <div className="resp-grid-2-cols" style={{ marginBottom: '1.5rem' }}>
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '1.25rem' }}>
           <h3 style={{ marginBottom: '1rem' }}>Ranking de ventas</h3>
-          <button type="button" onClick={() => setSaleModal(true)} style={{ marginBottom: 12, padding: '0.4rem 0.8rem', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: 8, fontWeight: 600 }}>Registrar venta</button>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+            <button type="button" onClick={() => setSaleModal(true)} style={{ padding: '0.4rem 0.8rem', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: 8, fontWeight: 600 }}>Registrar venta</button>
+            <input ref={saleImportCsvRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={onSalesImportPick} />
+            <button type="button" disabled={saleImportBusy} onClick={() => saleImportCsvRef.current?.click()} style={{ padding: '0.4rem 0.8rem', background: 'var(--surface-hover)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 600 }}>
+              {saleImportBusy ? 'Importando…' : 'Importar CSV de ventas'}
+            </button>
+          </div>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.45, maxWidth: 560 }}>
+            CSV con cabecera <strong style={{ color: 'var(--text)', fontWeight: 600 }}>Protagonista, Producto, Cantidad</strong> (coma o punto y coma). Una fila por venta.
+            Los nombres deben coincidir con protagonistas registrados y con productos de este evento. El monto se calcula con el precio del producto x cantidad.
+          </p>
+          {saleImportBanner && (
+            <div
+              role={saleImportBanner.type === 'err' ? 'alert' : 'status'}
+              aria-live={saleImportBanner.type === 'err' ? 'assertive' : 'polite'}
+              style={{
+                marginBottom: 12,
+                padding: '0.6rem 0.75rem',
+                borderRadius: 8,
+                fontSize: '0.87rem',
+                whiteSpace: 'pre-wrap',
+                lineHeight: 1.45,
+                border: '1px solid var(--border)',
+                ...(saleImportBanner.type === 'loading'
+                  ? { background: 'var(--bg)', color: 'var(--text-muted)' }
+                  : saleImportBanner.type === 'ok'
+                    ? { borderColor: 'var(--success)', background: 'var(--surface)', color: 'var(--text)' }
+                    : { borderColor: 'var(--danger)', background: 'var(--surface)', color: 'var(--text)' }),
+              }}
+            >
+              {saleImportBanner.type === 'loading' && <strong style={{ color: 'var(--text)' }}>{saleImportBanner.label}</strong>}
+              {saleImportBanner.type === 'ok' && (
+                <>
+                  <strong style={{ color: 'var(--success)' }}>Importación lista.</strong> Se registraron {saleImportBanner.created}{' '}
+                  venta(s) en ~{saleImportBanner.sec.toFixed(1)} s (con actualización del total de ingresos del evento).
+                </>
+              )}
+              {saleImportBanner.type === 'err' && (
+                <>
+                  <strong style={{ color: 'var(--danger)' }}>No se guardaron ventas.</strong> {saleImportBanner.message}
+                </>
+              )}
+            </div>
+          )}
           <ul style={{ listStyle: 'none' }}>
             {ranking.map((r, i) => (
               <li key={r.beneficiaryId} style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 4 }}>

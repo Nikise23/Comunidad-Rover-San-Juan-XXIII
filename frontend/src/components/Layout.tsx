@@ -1,5 +1,5 @@
 import { useEffect, useState, ReactNode, FormEvent } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import { authApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import Footer from './Footer';
@@ -12,7 +12,7 @@ const navItems = [
   { to: '/raffles', label: 'Rifas' },
 ];
 
-export default function Layout({ children }: { children: ReactNode }) {
+export default function Layout({ children }: { children?: ReactNode }) {
   const { user, logout, setSession } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -309,7 +309,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           ) : null}
         </aside>
         <main className="layout-main" style={{ flex: 1, padding: '1.5rem 2rem', overflow: 'auto' }}>
-          {children}
+          {children ?? <Outlet />}
         </main>
       </div>
       <Footer />

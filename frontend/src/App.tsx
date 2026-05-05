@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -9,6 +9,16 @@ import Events from './pages/Events';
 import EventDetail from './pages/EventDetail';
 import Raffles from './pages/Raffles';
 import Login from './pages/Login';
+
+function AppLayout() {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  return (
+    <Layout>
+      <Outlet />
+    </Layout>
+  );
+}
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -30,13 +40,10 @@ export default function App() {
     );
   }
 
-  if (!user) {
-    return <Login />;
-  }
-
   return (
-    <Layout>
-      <Routes>
+    <Routes>
+      <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+      <Route element={<AppLayout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
@@ -44,7 +51,8 @@ export default function App() {
         <Route path="/events" element={<Events />} />
         <Route path="/events/:id" element={<EventDetail />} />
         <Route path="/raffles" element={<Raffles />} />
-      </Routes>
-    </Layout>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
   );
 }

@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { SalesService } from './sales.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
+import { ImportSalesCsvDto } from './dto/import-sales-csv.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
 
 @Controller('sales')
@@ -10,6 +11,11 @@ export class SalesController {
   @Post()
   create(@Body() createSaleDto: CreateSaleDto) {
     return this.salesService.create(createSaleDto);
+  }
+
+  @Post('import/csv')
+  importCsv(@Body() dto: ImportSalesCsvDto) {
+    return this.salesService.importFromCsv(dto.eventId, dto.csv);
   }
 
   @Get()
