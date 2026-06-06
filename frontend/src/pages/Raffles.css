@@ -1,0 +1,229 @@
+.draw-countdown-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  padding: 1.5rem 0;
+}
+
+.draw-countdown-label {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.draw-countdown-number {
+  display: block;
+  font-family: var(--font-display, system-ui, sans-serif);
+  font-size: clamp(4rem, 18vw, 6.5rem);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--accent);
+  text-shadow: 0 0 40px color-mix(in srgb, var(--accent) 45%, transparent);
+  animation: draw-count-pop 0.85s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes draw-count-pop {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.draw-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-height: 160px;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.draw-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: draw-spin 0.75s linear infinite;
+}
+
+@keyframes draw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.draw-winners-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  color: var(--accent);
+  animation: draw-winner-title-in 0.6s ease-out;
+}
+
+@keyframes draw-winner-title-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.draw-winner-item {
+  animation: draw-winner-in 0.55s ease-out backwards;
+}
+
+.draw-winner-item:nth-child(1) {
+  animation-delay: 0.08s;
+}
+.draw-winner-item:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.draw-winner-item:nth-child(3) {
+  animation-delay: 0.24s;
+}
+.draw-winner-item:nth-child(4) {
+  animation-delay: 0.32s;
+}
+.draw-winner-item:nth-child(5) {
+  animation-delay: 0.4s;
+}
+.draw-winner-item:nth-child(n + 6) {
+  animation-delay: 0.48s;
+}
+
+@keyframes draw-winner-in {
+  from {
+    opacity: 0;
+    transform: translateX(-12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.draw-winner-first {
+  text-align: center;
+  padding: 1.25rem 1rem 1.1rem;
+  margin-bottom: 1rem;
+  border-radius: 12px;
+  border: 2px solid var(--accent);
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--accent) 18%, var(--surface)) 0%,
+    var(--bg) 100%
+  );
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent),
+    0 8px 28px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.draw-winner-first-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #000;
+  background: var(--accent);
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  margin-bottom: 0.65rem;
+}
+
+.draw-winner-first-number {
+  font-family: var(--font-display, system-ui, sans-serif);
+  font-size: clamp(2.2rem, 10vw, 3rem);
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text);
+  margin-bottom: 0.75rem;
+}
+
+.draw-winner-first-buyer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.draw-winner-first-buyer-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.draw-winner-first-buyer-name {
+  font-size: clamp(1.15rem, 4.5vw, 1.45rem);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--accent);
+  word-break: break-word;
+}
+
+.draw-winner-first-no-buyer {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.draw-winner-first-scout {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0.65rem 0 0;
+}
+
+.draw-winner-other {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.draw-winner-place-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text);
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  margin-bottom: 0.35rem;
+}
+
+.draw-winner-other-body strong {
+  color: var(--text);
+}
+
+.draw-winner-other-buyer strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.draw-winner-other strong {
+  color: var(--text);
+}

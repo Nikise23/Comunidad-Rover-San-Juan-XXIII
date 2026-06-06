@@ -1,7 +1,9 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { rafflesApi, eventsApi, beneficiariesApi } from '../api/client';
 import type { Raffle, RaffleNumber, RaffleNumberStatus, RaffleSummary } from '../api/client';
+import ConfettiCanvas from '../components/ConfettiCanvas';
+import './Raffles.css';
 
 const STATUS_COLOR: Record<string, string> = {
   disponible: 'var(--success)',
@@ -38,6 +40,21 @@ function formatImportCsvError(err: unknown): string {
   return 'No se pudo importar el CSV.';
 }
 
+/** Etiqueta de puesto para resultados del sorteo (rank 1-based). */
+function drawPlaceLabel(rank: number): string {
+  if (rank === 1) return '1er premio';
+  if (rank === 2) return '2do puesto';
+  if (rank === 3) return '3er puesto';
+  if (rank === 4) return '4to puesto';
+  if (rank === 5) return '5to puesto';
+  if (rank === 6) return '6to puesto';
+  if (rank === 7) return '7mo puesto';
+  if (rank === 8) return '8vo puesto';
+  if (rank === 9) return '9no puesto';
+  if (rank === 10) return '10mo puesto';
+  return `${rank}º puesto`;
+}
+
 export default function Raffles() {
   const [searchParams, setSearchParams] = useSearchParams();
   const raffleId = searchParams.get('raffle');
@@ -64,6 +81,10 @@ export default function Raffles() {
   const [drawModal, setDrawModal] = useState(false);
   const [drawCount, setDrawCount] = useState(1);
   const [drawResult, setDrawResult] = useState<{ number: number; soldTo: string | null; beneficiaryName: string }[] | null>(null);
+  const [drawPhase, setDrawPhase] = useState<'setup' | 'countdown' | 'loading' | 'winners'>('setup');
+  const [drawCountdown, setDrawCountdown] = useState(3);
+  const [showDrawConfetti, setShowDrawConfetti] = useState(false);
+  const [drawError, setDrawError] = useState<string | null>(null);
   const [editModal, setEditModal] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', pricePerNumber: 0, totalNumbers: 0, scoutEarningsMode: 'total' as 'total' | 'fixed', scoutEarningsAmount: 0 });
   const importCsvInputRef = useRef<HTMLInputElement>(null);
@@ -272,11 +293,68 @@ export default function Raffles() {
     reader.readAsText(file, 'UTF-8');
   };
 
-  const doDraw = () => {
+  const closeDrawModal = useCallback(() => {
+    setDrawModal(false);
+    setDrawResult(null);
+    setDrawPhase('setup');
+    setShowDrawConfetti(false);
+    setDrawError(null);
+    setDrawCountdown(3);
+  }, []);
+
+  const openDrawModal = useCallback(() => {
+    setDrawModal(true);
+    setDrawResult(null);
+    setDrawCount(1);
+    setDrawPhase('setup');
+    setShowDrawConfetti(false);
+    setDrawError(null);
+    setDrawCountdown(3);
+  }, []);
+
+  useEffect(() => {
+    if (drawPhase !== 'countdown') return;
+    setDrawCountdown(3);
+    let remaining = 3;
+    const id = window.setInterval(() => {
+      remaining -= 1;
+      if (remaining >= 1) {
+        setDrawCountdown(remaining);
+      } else {
+        window.clearInterval(id);
+        setDrawPhase('loading');
+      }
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [drawPhase]);
+
+  useEffect(() => {
+    if (drawPhase !== 'loading' || !raffleId) return;
+    let cancelled = false;
+    rafflesApi
+      .draw(raffleId, drawCount)
+      .then((res) => {
+        if (cancelled) return;
+        setDrawResult(res.data.winners);
+        setDrawPhase('winners');
+        setShowDrawConfetti(true);
+      })
+      .catch((err: { response?: { data?: { message?: string } }; message?: string }) => {
+        if (cancelled) return;
+        setDrawError(err.response?.data?.message ?? err.message ?? 'Error al realizar el sorteo');
+        setDrawPhase('setup');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [drawPhase, raffleId, drawCount]);
+
+  const startDraw = () => {
     if (!raffleId || drawCount < 1) return;
-    rafflesApi.draw(raffleId, drawCount).then((res) => {
-      setDrawResult(res.data.winners);
-    }).catch((err) => alert(err.response?.data?.message ?? 'Error al realizar el sorteo'));
+    setDrawError(null);
+    setShowDrawConfetti(false);
+    setDrawResult(null);
+    setDrawPhase('countdown');
   };
 
   const openEditRaffle = () => {
@@ -421,7 +499,7 @@ export default function Raffles() {
               {importCsvBusy ? 'Importando…' : 'Importar CSV'}
             </button>
             <button type="button" onClick={doExportCsv} style={btnEdit}>Exportar CSV</button>
-            <button type="button" onClick={() => { setDrawModal(true); setDrawResult(null); setDrawCount(1); }} style={{ ...btn, background: 'var(--accent)', color: '#000' }}>Realizar sorteo</button>
+            <button type="button" onClick={openDrawModal} style={{ ...btn, background: 'var(--accent)', color: '#000' }}>Realizar sorteo</button>
           </div>
           <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0 0 10px', maxWidth: 640, lineHeight: 1.4 }}>
             Solo se pueden actualizar por CSV los cupones que ya existen en la rifa (1…total). Para sumar nuevos números, abrí «Editar rifa» y aumentá la cantidad total.
@@ -711,35 +789,111 @@ export default function Raffles() {
         </div>
       )}
 
+      {showDrawConfetti && drawModal ? <ConfettiCanvas active={showDrawConfetti} /> : null}
+
       {drawModal && selectedRaffle && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, padding: 16 }} onClick={() => setDrawModal(false)}>
-          <div className="modal-content" style={{ background: 'var(--surface)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', maxHeight: '90vh', overflow: 'auto', maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, padding: 16 }}
+          onClick={() => {
+            if (drawPhase === 'countdown' || drawPhase === 'loading') return;
+            closeDrawModal();
+          }}
+        >
+          <div className="modal-content" style={{ background: 'var(--surface)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', maxHeight: '90vh', overflow: 'auto', maxWidth: 420, minWidth: 280 }} onClick={(e) => e.stopPropagation()}>
             <h3 style={{ marginBottom: '1rem' }}>Realizar sorteo</h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 12 }}>Se elegirán ganadores al azar entre los números vendidos.</p>
-            {!drawResult ? (
+
+            {drawPhase === 'countdown' && (
+              <div className="draw-countdown-wrap" aria-live="polite">
+                <span className="draw-countdown-label">El sorteo comienza en</span>
+                <span key={drawCountdown} className="draw-countdown-number">
+                  {drawCountdown}
+                </span>
+              </div>
+            )}
+
+            {drawPhase === 'loading' && (
+              <div className="draw-loading" aria-busy="true">
+                <div className="draw-loading-spinner" />
+                <span>Sorteando…</span>
+              </div>
+            )}
+
+            {drawPhase === 'setup' && (
               <>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 12 }}>Se elegirán ganadores al azar entre los números vendidos.</p>
+                {drawError ? <p style={{ color: 'var(--danger)', fontSize: '0.88rem', marginBottom: 10 }}>{drawError}</p> : null}
                 <label style={{ display: 'block', marginBottom: 8 }}>Cantidad de ganadores</label>
-                <input type="number" min={1} max={summary?.sold ?? 100} value={drawCount} onChange={(e) => setDrawCount(Math.max(1, parseInt(e.target.value, 10) || 1))} style={{ width: '100%', padding: '0.5rem', marginBottom: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }} />
+                <input
+                  type="number"
+                  min={1}
+                  max={summary?.sold ?? 100}
+                  value={drawCount}
+                  onChange={(e) => setDrawCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  style={{ width: '100%', padding: '0.5rem', marginBottom: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}
+                />
                 <div style={{ display: 'flex', gap: 8, marginTop: '1rem' }}>
-                  <button type="button" onClick={doDraw} style={{ padding: '0.5rem 1rem', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600 }}>Sortear</button>
-                  <button type="button" onClick={() => setDrawModal(false)} style={{ padding: '0.5rem 1rem', background: 'var(--surface-hover)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>Cerrar</button>
+                  <button type="button" onClick={startDraw} style={{ padding: '0.5rem 1rem', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600 }}>Sortear</button>
+                  <button type="button" onClick={closeDrawModal} style={{ padding: '0.5rem 1rem', background: 'var(--surface-hover)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>Cerrar</button>
                 </div>
               </>
-            ) : (
+            )}
+
+            {drawPhase === 'winners' && drawResult && (
               <>
-                <p style={{ fontWeight: 600, marginBottom: 8 }}>Ganadores:</p>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {drawResult.map((w, i) => (
-                    <li key={i} style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}>
-                      <strong>Nº {w.number}</strong>
-                      {w.soldTo ? ` · Comprador: ${w.soldTo}` : ''}
-                      {w.beneficiaryName ? ` · Scout: ${w.beneficiaryName}` : ''}
-                    </li>
-                  ))}
-                </ul>
+                <p className="draw-winners-title">¡Ganadores!</p>
+                {drawResult[0] && (
+                  <div className="draw-winner-first draw-winner-item">
+                    <span className="draw-winner-first-badge">1er premio</span>
+                    <div className="draw-winner-first-number">Nº {drawResult[0].number}</div>
+                    {drawResult[0].soldTo ? (
+                      <div className="draw-winner-first-buyer">
+                        <span className="draw-winner-first-buyer-label">Comprador</span>
+                        <span className="draw-winner-first-buyer-name">{drawResult[0].soldTo}</span>
+                      </div>
+                    ) : (
+                      <p className="draw-winner-first-no-buyer">Sin comprador registrado</p>
+                    )}
+                    {drawResult[0].beneficiaryName ? (
+                      <p className="draw-winner-first-scout">Scout: {drawResult[0].beneficiaryName}</p>
+                    ) : null}
+                  </div>
+                )}
+                {drawResult.length > 1 && (
+                  <ul className="draw-winners-rest" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {drawResult.slice(1).map((w, idx) => {
+                      const rank = idx + 2;
+                      return (
+                        <li key={rank} className="draw-winner-item draw-winner-other">
+                          <span className="draw-winner-place-badge">{drawPlaceLabel(rank)}</span>
+                          <div className="draw-winner-other-body">
+                            <strong>Nº {w.number}</strong>
+                            {w.soldTo ? (
+                              <span className="draw-winner-other-buyer">
+                                {' '}
+                                · Comprador: <strong>{w.soldTo}</strong>
+                              </span>
+                            ) : null}
+                            {w.beneficiaryName ? ` · Scout: ${w.beneficiaryName}` : ''}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
                 <div style={{ display: 'flex', gap: 8, marginTop: '1rem' }}>
-                  <button type="button" onClick={() => { setDrawResult(null); }} style={{ padding: '0.5rem 1rem', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600 }}>Sortear de nuevo</button>
-                  <button type="button" onClick={() => setDrawModal(false)} style={{ padding: '0.5rem 1rem', background: 'var(--surface-hover)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>Cerrar</button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDrawResult(null);
+                      setDrawPhase('setup');
+                      setShowDrawConfetti(false);
+                      setDrawError(null);
+                    }}
+                    style={{ padding: '0.5rem 1rem', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600 }}
+                  >
+                    Sortear de nuevo
+                  </button>
+                  <button type="button" onClick={closeDrawModal} style={{ padding: '0.5rem 1rem', background: 'var(--surface-hover)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>Cerrar</button>
                 </div>
               </>
             )}

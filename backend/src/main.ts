@@ -26,8 +26,18 @@ async function bootstrap() {
   app.enableCors({
     origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
   });
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
+  const port = parseInt(String(process.env.PORT || '3000'), 10) || 3000;
+  try {
+    await app.listen(port);
+  } catch (err: unknown) {
+    const e = err as NodeJS.ErrnoException;
+    if (e?.code === 'EADDRINUSE') {
+      console.error(
+        `[rover-api] Puerto ${port} ocupado. Cerrá la otra instancia, definí otro PORT en .env, o usá "npm run start:dev" (libera el puerto automáticamente).`,
+      );
+    }
+    throw err;
+  }
   console.log(`🚀 API Rover escuchando en http://localhost:${port}`);
 }
 bootstrap();
